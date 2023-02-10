@@ -1,12 +1,12 @@
 %%%===================================================================
-%%% @doc `nostr_sup' is the top level supervisor of the `nostr'
-%%% application. It supervises the critical part of the
-%%% infrastructure.
+%%% @doc `nostr_manager_sup' manages the manager process but also
+%%% `nostr_manager_client_sup' and `nostr_manager_relay_sup' processes
+%%% respectively responsible of the client and relay services.
 %%%
 %%% @end
 %%% @author Mathieu Kerjouan <contact at erlang-punch.com>
 %%%===================================================================
--module(nostr_sup).
+-module(nostr_manager_sup).
 -behaviour(supervisor).
 -export([start_link/0]).
 -export([init/1]).
@@ -28,7 +28,7 @@ start_link() ->
       SupFlags :: supervisor:sup_flags(),
       ChildSpec :: supervisor:child_spec().
 init(_Args) ->
-    State = {supervisor(), children_client()},
+    State = {supervisor(), children()},
     {ok, State}.
 
 %%--------------------------------------------------------------------
@@ -41,36 +41,25 @@ supervisor() ->
 %%--------------------------------------------------------------------
 %%
 %%--------------------------------------------------------------------
-children_client() ->
-    [nostr_manager_sup()
-    ,nostr_manager()
-    ,spec_pg(client)
-    ,spec_pg(relay)
+children() ->
+    [nostr_manager_client_sup()
+    ,nostr_manager_relay_sup()
     ].
 
 %%--------------------------------------------------------------------
 %%
 %%--------------------------------------------------------------------
-nostr_manager_sup() ->
-    #{ id => nostr_manager_sup
-     , start => {nostr_manager_sup, start_link, []}
+nostr_manager_client_sup() ->
+    #{ id => nostr_manager_client_sup
+     , start => {nostr_manager_client_sup, start_link, [[]]}
      , type => supervisor
      }.
 
 %%--------------------------------------------------------------------
 %%
 %%--------------------------------------------------------------------
-nostr_manager() ->
-    #{ id => nostr_manager
-     , start => {nostr_manager, start_link, []}
-     , type => worker
-     }.
-
-%%--------------------------------------------------------------------
-%%
-%%--------------------------------------------------------------------
-spec_pg(Scope) ->
-    #{ id => {nostr_pg, Scope}
-     , start => {pg, start_link, [Scope]}
-     , type => worker
+nostr_manager_relay_sup() ->
+    #{ id => nostr_manager_relay_sup
+     , start => {nostr_manager_relay_sup, start_link, []}
+     , type => supervisor
      }.

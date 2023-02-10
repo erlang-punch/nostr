@@ -1,34 +1,45 @@
 %%%===================================================================
-%%% @doc `nostr_sup' is the top level supervisor of the `nostr'
-%%% application. It supervises the critical part of the
-%%% infrastructure.
+%%% @doc `nostr_client_connection_sup' module is a supervisor to
+%%% supervise a client connection process created by using module e
+%%% `nostr_client_connection'.
+%%%
+%%% == Examples ==
+%%%
+%%% ```
+%%% nostr_client_connection_sup:start_link([{host, "relay.nostrich.de"}]).
+%%% pg:get_members(client, {"relay.nostrich.de", connection}).
+%%% '''
 %%%
 %%% @end
 %%% @author Mathieu Kerjouan <contact at erlang-punch.com>
-%%%===================================================================
--module(nostr_sup).
--behaviour(supervisor).
--export([start_link/0]).
+%%% ===================================================================
+-module(nostr_client_connection_sup).
+-behavior(supervisor).
+-export([start_link/1]).
 -export([init/1]).
+-export([create_connection/2, spec_connection/1]).
 
 %%--------------------------------------------------------------------
-%%
+%% @doc
+%% @end
 %%--------------------------------------------------------------------
--spec start_link() -> Return when
+-spec start_link(Args) -> Return when
+      Args :: proplists:proplists(),
       Return :: supervisor:startlink_ret().
-start_link() ->
-    supervisor:start_link({local, ?MODULE}, ?MODULE, []).
+start_link(Args) ->
+    supervisor:start_link(?MODULE, Args).
 
 %%--------------------------------------------------------------------
-%%
+%% @doc
+%% @end
 %%--------------------------------------------------------------------
 -spec init(Args) -> Return when
       Args :: proplists:proplists(),
       Return :: {ok,{SupFlags,[ChildSpec]}} | ignore,
       SupFlags :: supervisor:sup_flags(),
       ChildSpec :: supervisor:child_spec().
-init(_Args) ->
-    State = {supervisor(), children_client()},
+init(Args) ->
+    State = {supervisor(), children(Args)},
     {ok, State}.
 
 %%--------------------------------------------------------------------
@@ -41,36 +52,29 @@ supervisor() ->
 %%--------------------------------------------------------------------
 %%
 %%--------------------------------------------------------------------
-children_client() ->
-    [nostr_manager_sup()
-    ,nostr_manager()
-    ,spec_pg(client)
-    ,spec_pg(relay)
+children(Args) ->
+    [spec_connection(Args)
     ].
 
 %%--------------------------------------------------------------------
 %%
 %%--------------------------------------------------------------------
-nostr_manager_sup() ->
-    #{ id => nostr_manager_sup
-     , start => {nostr_manager_sup, start_link, []}
-     , type => supervisor
-     }.
+-spec create_connection(Pid, Args) -> Return when
+      Pid :: supervisor:sup_ref(),
+      Args :: proplists:proplists(),
+      Return :: supervisor:startchild_ret().
+create_connection(Pid, Args) ->
+    supervisor:start_child(Pid, spec_connection(Args)).
 
 %%--------------------------------------------------------------------
 %%
 %%--------------------------------------------------------------------
-nostr_manager() ->
-    #{ id => nostr_manager
-     , start => {nostr_manager, start_link, []}
-     , type => worker
-     }.
-
-%%--------------------------------------------------------------------
-%%
-%%--------------------------------------------------------------------
-spec_pg(Scope) ->
-    #{ id => {nostr_pg, Scope}
-     , start => {pg, start_link, [Scope]}
+-spec spec_connection(Args) -> Return when
+      Args :: proplists:proplists(),
+      Return :: supervisor:startchild_ret().
+spec_connection(Args) ->
+    Start = {nostr_client_connection, start_link, [Args]},
+    #{ id => nostr_client_connection
+     , start => Start
      , type => worker
      }.

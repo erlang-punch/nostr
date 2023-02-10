@@ -10,14 +10,10 @@ jobs:
         container:
           - erlang:25
           - erlang:25-alpine
-          - erlang:23
-          - erlang:23-alpine
     container:
       image: ${{ matrix.container }}
     steps:
       - uses: actions/checkout@v2
-      # - name: asdf_install
-      #   uses: asdf-vm/actions/install@v1
+      - run: rebar3 get-deps
       - run: rebar3 compile
-      - run: rebar3 eunit
-      - run: rebar3 ct
+      - run: rebar3 check

@@ -1,12 +1,11 @@
 %%%===================================================================
-%%% @doc `nostr_sup' is the top level supervisor of the `nostr'
-%%% application. It supervises the critical part of the
-%%% infrastructure.
+%%% @doc `nostr_manager_relay_sup' creates new group of relay
+%%% processes to manage a `nostr' server.
 %%%
 %%% @end
 %%% @author Mathieu Kerjouan <contact at erlang-punch.com>
 %%%===================================================================
--module(nostr_sup).
+-module(nostr_manager_relay_sup).
 -behaviour(supervisor).
 -export([start_link/0]).
 -export([init/1]).
@@ -26,51 +25,26 @@ start_link() ->
       Args :: proplists:proplists(),
       Return :: {ok,{SupFlags,[ChildSpec]}} | ignore,
       SupFlags :: supervisor:sup_flags(),
-      ChildSpec :: supervisor:child_spec().
-init(_Args) ->
-    State = {supervisor(), children_client()},
+      ChildSpec :: [supervisor:child_spec(), ...].
+init([]) ->
+    State = {supervisor(), children()},
     {ok, State}.
 
 %%--------------------------------------------------------------------
 %%
 %%--------------------------------------------------------------------
+-spec supervisor() -> Return when
+      Return :: supervisor:sup_flags().
 supervisor() ->
     #{ strategy => one_for_one
+     , intensity => 0
+     , period => 1
      }.
 
 %%--------------------------------------------------------------------
 %%
 %%--------------------------------------------------------------------
-children_client() ->
-    [nostr_manager_sup()
-    ,nostr_manager()
-    ,spec_pg(client)
-    ,spec_pg(relay)
-    ].
-
-%%--------------------------------------------------------------------
-%%
-%%--------------------------------------------------------------------
-nostr_manager_sup() ->
-    #{ id => nostr_manager_sup
-     , start => {nostr_manager_sup, start_link, []}
-     , type => supervisor
-     }.
-
-%%--------------------------------------------------------------------
-%%
-%%--------------------------------------------------------------------
-nostr_manager() ->
-    #{ id => nostr_manager
-     , start => {nostr_manager, start_link, []}
-     , type => worker
-     }.
-
-%%--------------------------------------------------------------------
-%%
-%%--------------------------------------------------------------------
-spec_pg(Scope) ->
-    #{ id => {nostr_pg, Scope}
-     , start => {pg, start_link, [Scope]}
-     , type => worker
-     }.
+-spec children() -> Return when
+      Return :: [supervisor:child_spec(), ...].
+children() ->
+    [].
