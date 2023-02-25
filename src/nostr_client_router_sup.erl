@@ -1,76 +1,77 @@
 %%%===================================================================
-%%% @doc `nostr_sup' is the top level supervisor of the `nostr'
-%%% application. It supervises the critical part of the
-%%% infrastructure.
+%%% @doc `nostr_client_router_sup' monitors the `nostr_client_router'
+%%% pool of processes.
+%%%
+%%% == Examples ==
+%%%
+%%% ```
+%%% nostr_client_router_sup:start_link([{host, "relay.nostrich.de"}]).
+%%% pg:get_members(client, {"relay.nostrich.de", router}).
+%%% '''
 %%%
 %%% @end
 %%% @author Mathieu Kerjouan <contact at erlang-punch.com>
 %%%===================================================================
--module(nostr_sup).
--behaviour(supervisor).
--export([start_link/0]).
+-module(nostr_client_router_sup).
+-behavior(supervisor).
+-export([start_link/1]).
 -export([init/1]).
+-export([start_router/2, spec_router/1]).
 
 %%--------------------------------------------------------------------
-%%
+%% @doc
+%% @end
 %%--------------------------------------------------------------------
--spec start_link() -> Return when
+-spec start_link(Args) -> Return when
+      Args :: proplists:proplists(),
       Return :: supervisor:startlink_ret().
-start_link() ->
-    supervisor:start_link({local, ?MODULE}, ?MODULE, []).
+start_link(Args) ->
+    supervisor:start_link(?MODULE, Args).
 
 %%--------------------------------------------------------------------
-%%
+%% @doc
+%% @end
 %%--------------------------------------------------------------------
 -spec init(Args) -> Return when
       Args :: proplists:proplists(),
       Return :: {ok,{SupFlags,[ChildSpec]}} | ignore,
       SupFlags :: supervisor:sup_flags(),
       ChildSpec :: supervisor:child_spec().
-init(_Args) ->
-    State = {supervisor(), children_client()},
+init(Args) ->
+    State = {supervisor(), children(Args)},
     {ok, State}.
 
 %%--------------------------------------------------------------------
 %%
 %%--------------------------------------------------------------------
 supervisor() ->
-    #{ strategy => one_for_one
-     }.
+    #{ strategy => one_for_one }.
 
 %%--------------------------------------------------------------------
 %%
 %%--------------------------------------------------------------------
-children_client() ->
-    [nostr_manager_sup()
-    ,nostr_manager()
-    ,spec_pg(client)
-    ,spec_pg(relay)
-    ].
+children(Args) ->
+    [ spec_router(Args) || _ <- lists:seq(0, 9)].
 
 %%--------------------------------------------------------------------
 %%
 %%--------------------------------------------------------------------
-nostr_manager_sup() ->
-    #{ id => nostr_manager_sup
-     , start => {nostr_manager_sup, start_link, []}
-     , type => supervisor
-     }.
+-spec start_router(Pid, Args) -> Return when
+      Pid :: supervisor:sup_ref(),
+      Args :: proplists:proplists(),
+      Return :: supervisor:startchild_ret().
+start_router(Pid, Args) ->
+    supervisor:start_child(Pid, spec_router(Args)).
 
 %%--------------------------------------------------------------------
 %%
 %%--------------------------------------------------------------------
-nostr_manager() ->
-    #{ id => nostr_manager
-     , start => {nostr_manager, start_link, []}
-     , type => worker
-     }.
-
-%%--------------------------------------------------------------------
-%%
-%%--------------------------------------------------------------------
-spec_pg(Scope) ->
-    #{ id => {nostr_pg, Scope}
-     , start => {pg, start_link, [Scope]}
+-spec spec_router(Args) -> Return when
+      Args :: proplists:proplists(),
+      Return :: supervisor:startchild_ret().
+spec_router(Args) ->
+    Start = {nostr_client_router, start_link, [Args]},
+    #{ id => {nostr_client_router, erlang:unique_integer()}
+     , start => Start
      , type => worker
      }.

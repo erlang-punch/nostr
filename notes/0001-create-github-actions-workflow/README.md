@@ -1,3 +1,10 @@
+---
+title: Create Github Actions Workflow
+author: Mathieu Kerjouan
+keywords: github,actions,vagrant,qubeos,erlang
+license: CC BY-NC-ND
+---
+
 This documentation is currently a draft and will be updated later when
 the whole pipeline will be correctly used.
 
