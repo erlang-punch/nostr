@@ -5,8 +5,9 @@
 %%% == Examples ==
 %%%
 %%% ```
-%%% nostr_client_router_sup:start_link([{host, "relay.nostrich.de"}]).
-%%% pg:get_members(client, {"relay.nostrich.de", router}).
+%%% Host = "relay.nostrich.de".
+%%% nostr_client_router_sup:start_link([{host, Host}]).
+%%% pg:get_members(client, {Host, router}).
 %%% '''
 %%%
 %%% @end
@@ -51,7 +52,7 @@ supervisor() ->
 %%
 %%--------------------------------------------------------------------
 children(Args) ->
-    [ spec_router(Args) || _ <- lists:seq(0, 9)].
+    [ spec_router(Args) || _ <- lists:seq(0, 20)].
 
 %%--------------------------------------------------------------------
 %%

@@ -81,4 +81,3 @@ spec_controller(Args) ->
       Return :: supervisor:startchild_ret().
 start_controller(Pid, Args) ->
     supervisor:start_child(Pid, spec_controller(Args)).
-
