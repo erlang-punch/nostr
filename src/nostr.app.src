@@ -14,6 +14,8 @@
    ,stdlib
    ,cowboy
    ,gun
+   ,crypto
+   ,public_key
    ]}
  ,{optional_applications, []}
  ,{env, []}
@@ -29,10 +31,10 @@
    ,nostr_manager_relay_sup
    ,nostr_manager_client_sup
    ]}
-  ,{licenses, ["MIT"]}
-  ,{links
-   ,["https://erlang-punch.com"
+ ,{licenses, ["MIT"]}
+ ,{links
+  ,["https://erlang-punch.com"
    ,"https://github.com/erlang-punch/nostr"
    ]}
-  ]
+ ]
 }.

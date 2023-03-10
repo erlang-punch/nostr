@@ -100,8 +100,12 @@ terminate(_Reason, _State) ->
 % receive a raw message and do all the parser/router magic
 handle_cast({raw, Data} = Message, State) ->
     ?LOG_DEBUG("~p", [{?MODULE, self(), cast, Message, State}]),
-    Parsed = nostrlib_decoder:decode(Data),
-    ?LOG_DEBUG("~p", [{?MODULE, self(), parsed, Parsed, State}]),
+    case nostrlib:decode(Data) of
+        {ok, Parsed, Labels} ->
+            ?LOG_DEBUG("~p", [{?MODULE, self(), parsed, {Parsed, Labels}, State}]);
+        Elsewise ->
+            ?LOG_DEBUG("~p", [{?MODULE, self(), parsed, Elsewise, State}])
+    end,
     {noreply, State};
 
 handle_cast(Message, State) ->

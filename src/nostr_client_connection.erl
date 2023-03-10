@@ -9,7 +9,7 @@
 %%% ```
 %%% % create a new connection to relay.nostrich.de
 %%% {ok, Pid} = nostr_client_connection:start([{host, "relay.nostrich.de"}]).
-%%% 
+%%%
 %%% % craft a request
 %%% Subscription = nostrlib_client:create_subscription_id().
 %%% Req = [<<"REQ">>, Subscription, #{kinds => [0,1],limit => 10}].
@@ -370,4 +370,3 @@ handle_info(Message, State) ->
 websocket_message_router(Message, State) ->
     Host = proplists:get_value(host, State#state.arguments, undefined),
     nostr_client_router:raw_pool(Host, Message).
-

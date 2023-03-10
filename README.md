@@ -31,7 +31,7 @@ moment.
 Here the list of currently supported
 [nips](https://github.com/nostr-protocol/nips):
 
- - [ ] [nip/01: Basic protocol flow description](https://github.com/nostr-protocol/nips/blob/master/01.md)
+ - [x] [nip/01: Basic protocol flow description](https://github.com/nostr-protocol/nips/blob/master/01.md)
  - [ ] [nip/02: Contact List and Petnames](https://github.com/nostr-protocol/nips/blob/master/02.md)
  - [ ] [nip/03: OpenTimestamps Attestations for Events](https://github.com/nostr-protocol/nips/blob/master/03.md)
  - [ ] [nip/04: Encrypted Direct Message](https://github.com/nostr-protocol/nips/blob/master/04.md)
@@ -64,6 +64,11 @@ Here the list of currently supported
  - [ ] [nip/56: Reporting](https://github.com/nostr-protocol/nips/blob/master/56.md)
  - [ ] [nip/57: Lightning Zaps](https://github.com/nostr-protocol/nips/blob/master/57.md)
  - [ ] [nip/65: Relay List Metadata](https://github.com/nostr-protocol/nips/blob/master/65.md)
+ - [ ] [nip/78: Arbitrary custom app data](https://github.com/nostr-protocol/nips/blob/master/78.md)
+
+## Other Implementation (required by nostr)
+
+ - [x] [BIP-0340: Schnorr Signatures for secp256k1](https://github.com/bitcoin/bips/blob/master/bip-0340.mediawiki)
 
 ## Build
 
