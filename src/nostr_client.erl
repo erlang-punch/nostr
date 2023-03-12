@@ -21,11 +21,11 @@
 %%% {ok, Subscription} = nostr_client:request(Host, Filter).
 %%%
 %%% % close the current active connection
-%%% ok = nostrlib_client:close(Host, Subscription).
+%%% ok = nostr_client:close(Host, Subscription).
 %%%
 %%% % send and event
 %%% Opts = [{private_key, PrivateKey}].
-%%% ok = nostrlib_client:event(Host, text_note, <<"hello">>, Opts).
+%%% ok = nostr_client:event(Host, text_note, <<"hello">>, Opts).
 %%% '''
 %%%
 %%% @todo replace host by another ID.
@@ -36,12 +36,19 @@
 -export([event/4]).
 -export([request/2, request/3]).
 -export([close/2, close/3]).
+-export([contact_list/3]).
+-include_lib("eunit/include/eunit.hrl").
 -include_lib("kernel/include/logger.hrl").
 -include("nostrlib.hrl").
 
 % @TODO document types
 -type host() :: bitstring() | string().
 -type options() :: proplists:proplists().
+
+%%--------------------------------------------------------------------
+%% required for eunit
+%%--------------------------------------------------------------------
+-spec test() -> any().
 
 %%--------------------------------------------------------------------
 %% @doc connect/1 creates a new nostr_client connection to a remote
@@ -109,6 +116,15 @@ event(Host, recommend_server, Content, Opts) ->
                     nostr_client_connection:send_raw(Connection, Payload);
                 Elsewise -> Elsewise
             end;
+        Elsewise -> Elsewise
+    end;
+event(Host, contact_list, Tags, Opts)
+  when is_list(Tags) ->
+    case get_connection(Host) of
+        {ok, Connection} ->
+            Event = #event{ kind = contact_list, content = <<>>, tags = Tags },
+            {ok, Payload} = nostrlib:encode(Event, Opts),
+            nostr_client_connection:send_raw(Connection, Payload);
         Elsewise -> Elsewise
     end;
 event(_,Kind,_,_) ->
@@ -183,6 +199,40 @@ close(Host, SubscriptionId, Opts) ->
             nostr_client_connection:send_raw(Connection, Payload);
         Elsewise -> Elsewise
     end.
+
+%%--------------------------------------------------------------------
+%% @doc `contact_list/3' function closes an active subscription.
+%%
+%% ```
+%% #tag{} = Contact = new_contact(PublicKey, URL, Name).
+%% '''
+%%
+%% @end
+%%--------------------------------------------------------------------
+-spec contact_list(Host, Tags, Opts) -> Return when
+      Host :: string(),
+      Tags :: decoded_tags(),
+      Opts :: proplists:proplists(),
+      Return :: ok.
+
+contact_list(Host, Tags, Opts) ->
+    case get_connection(Host) of
+        {ok, Connection} ->
+            {ok, Payload} = encode_contact_list(Tags, Opts),
+            nostr_client_connection:send_raw(Connection, Payload);
+        Elsewise -> Elsewise
+    end.
+
+
+% @hidden
+encode_contact_list(Tags, Opts) ->
+    Event = #event{ kind = contact_list, tags = Tags, content = <<>> },
+    nostrlib:encode(Event, Opts).
+
+% @hidden
+-spec encode_contact_list_test() -> any().
+encode_contact_list_test() ->
+    [].
 
 %%--------------------------------------------------------------------
 %% @hidden

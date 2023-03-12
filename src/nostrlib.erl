@@ -440,7 +440,18 @@ encode_event_content(#event{ content = undefined }, _Opts, _Buffer) ->
 encode_event_content(#event{ content = Content} = Event, _Opts, Buffer)
   when is_bitstring(Content) ->
     Next = Buffer#{ <<"content">> => Content },
-    encode_event_kind(Event, _Opts, Next).
+    encode_event_kind(Event, _Opts, Next);
+encode_event_content(#event{ content = Content}, _Opts, _Buffer) ->
+    {error, [{content, Content}]}.
+
+% @hidden
+-spec encode_event_content_test() -> any().
+encode_event_content_test() ->
+    [?assertEqual({error, [{content, undefined}]}
+                 ,encode_event_content(#event{ content = undefined }, [], <<>>))
+    ,?assertEqual({error, [{content, []}]}
+                 ,encode_event_content(#event{ content = [] }, [], <<>>))
+    ].
 
 %%--------------------------------------------------------------------
 %% @hidden
@@ -599,6 +610,7 @@ encode_tags_test() ->
     ].
 
 %%--------------------------------------------------------------------
+%% @hidden
 %% @doc
 %% @end
 %%--------------------------------------------------------------------
@@ -609,7 +621,9 @@ encode_tag(#tag{ name = public_key, value = PublicKey, params = Params}, _Opts) 
 encode_tag(#tag{ name = event_id, value = EventId, params = []}, _Opts) ->
     {ok, [<<"e">>, binary_to_hex(EventId)]};
 encode_tag(#tag{ name = event_id, value = EventId, params = Params}, _Opts) ->
-    {ok, [<<"e">>, binary_to_hex(EventId)] ++ Params}.
+    {ok, [<<"e">>, binary_to_hex(EventId)] ++ Params};
+encode_tag(#tag{ name = EventName, value = Value, params = Params }, _Opts) ->
+    {error, [{tag, EventName},{value, Value},{params, Params}]}.
 
 %%--------------------------------------------------------------------
 %% @hidden
@@ -1430,6 +1444,7 @@ decode_subscription_id(<<SubscriptionId/binary>>) ->
 ?KIND(0, set_metadata);
 ?KIND(1, text_note);
 ?KIND(2, recommend_server);
+?KIND(3, contact_list);
 ?KIND(7, reaction);
 kind(_) -> unsupported.
 
