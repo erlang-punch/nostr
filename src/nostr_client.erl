@@ -223,6 +223,21 @@ contact_list(Host, Tags, Opts) ->
         Elsewise -> Elsewise
     end.
 
+contact_list([PublicKey, Url, LocalName] = ContactList) ->
+    contact_list1(ContactList).
+
+contact_list1([<<PublicKey:256/bitstring>>,_,_] = ContactList) ->
+    contact_list2(ContactList).
+
+contact_list2([_, <<Url/bitstring>>, _] = ContactList) ->
+    case nostrlib_url:check(Url) of
+        {ok, Url} ->
+            contact_list3(ContactList);
+         ->
+    
+
+
+
 
 % @hidden
 encode_contact_list(Tags, Opts) ->

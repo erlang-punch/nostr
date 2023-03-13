@@ -101,8 +101,9 @@ terminate(_Reason, _State) ->
 handle_cast({raw, Data} = Message, State) ->
     ?LOG_DEBUG("~p", [{?MODULE, self(), cast, Message, State}]),
     case nostrlib:decode(Data) of
-        {ok, Parsed, Labels} ->
-            ?LOG_DEBUG("~p", [{?MODULE, self(), parsed, {Parsed, Labels}, State}]);
+        {ok, #subscription{ content = #event{ id = Id, kind = Kind } } q= Parsed, Labels} ->
+            ?LOG_DEBUG("~p", [{?MODULE, self(), parsed, {Parsed, Labels}, State}]),
+            file:write_file(filename:join(<<"_data">>, [Kind, <<"-">>, base64:encode(Id)]), Data);
         Elsewise ->
             ?LOG_DEBUG("~p", [{?MODULE, self(), parsed, Elsewise, State}])
     end,
