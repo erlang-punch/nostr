@@ -36,7 +36,7 @@
 -export([event/4]).
 -export([request/2, request/3]).
 -export([close/2, close/3]).
--export([contact_list/3]).
+% -export([add_contact/2, add_contact/3, del_contact/2]).
 -include_lib("eunit/include/eunit.hrl").
 -include_lib("kernel/include/logger.hrl").
 -include("nostrlib.hrl").
@@ -89,7 +89,7 @@ connect(Host, Options) ->
 
 event(Host, set_metadata, Content, Opts)
   when is_map(Content) ->
-    case get_connection(Host) of
+    case get_process(Host, connection) of
         {ok, Connection} ->
             Metadata = thoas:encode(Content),
             Event = #event{ kind = set_metadata, content = Metadata },
@@ -99,7 +99,7 @@ event(Host, set_metadata, Content, Opts)
     end;
 event(Host, text_note, Content, Opts) 
   when is_binary(Content) ->
-    case get_connection(Host) of
+    case get_process(Host, connection) of
         {ok, Connection} ->
             Event = #event{ kind = text_note, content = Content},
             {ok, Payload} = nostrlib:encode(Event, Opts),
@@ -109,7 +109,7 @@ event(Host, text_note, Content, Opts)
 event(Host, recommend_server, Content, Opts) ->
     case nostrlib_url:check(Content, Opts) of
         {ok, Url} ->
-            case get_connection(Host) of
+            case get_process(Host, connection) of
                 {ok, Connection} ->
                     Event = #event{ kind = recommend_server, content = Url },
                     {ok, Payload} = nostrlib:encode(Event, Opts),
@@ -120,7 +120,7 @@ event(Host, recommend_server, Content, Opts) ->
     end;
 event(Host, contact_list, Tags, Opts)
   when is_list(Tags) ->
-    case get_connection(Host) of
+    case get_process(Host, connection) of
         {ok, Connection} ->
             Event = #event{ kind = contact_list, content = <<>>, tags = Tags },
             {ok, Payload} = nostrlib:encode(Event, Opts),
@@ -155,7 +155,7 @@ request(Host, Filter) ->
       Return :: {ok, bitstring()}.
 
 request(Host, Filter, Opts) ->
-    case get_connection(Host) of
+    case get_process(Host, connection) of
         {ok, Connection} ->
             SubscriptionId = nostrlib:new_subscription_id(),
             Request = #request{ subscription_id = SubscriptionId
@@ -192,7 +192,7 @@ close(Host, SubscriptionId) ->
       Return :: ok.
 
 close(Host, SubscriptionId, Opts) ->
-    case get_connection(Host) of
+    case get_process(Host, connection) of
         {ok, Connection} ->
             Close = #close{ subscription_id = SubscriptionId },
             {ok, Payload} = nostrlib:encode(Close, Opts),
@@ -201,60 +201,13 @@ close(Host, SubscriptionId, Opts) ->
     end.
 
 %%--------------------------------------------------------------------
-%% @doc `contact_list/3' function closes an active subscription.
-%%
-%% ```
-%% #tag{} = Contact = new_contact(PublicKey, URL, Name).
-%% '''
-%%
+%% @doc
 %% @end
 %%--------------------------------------------------------------------
--spec contact_list(Host, Tags, Opts) -> Return when
-      Host :: string(),
-      Tags :: decoded_tags(),
-      Opts :: proplists:proplists(),
-      Return :: ok.
-
-contact_list(Host, Tags, Opts) ->
-    case get_connection(Host) of
-        {ok, Connection} ->
-            {ok, Payload} = encode_contact_list(Tags, Opts),
-            nostr_client_connection:send_raw(Connection, Payload);
-        Elsewise -> Elsewise
-    end.
-
-contact_list([PublicKey, Url, LocalName] = ContactList) ->
-    contact_list1(ContactList).
-
-contact_list1([<<PublicKey:256/bitstring>>,_,_] = ContactList) ->
-    contact_list2(ContactList).
-
-contact_list2([_, <<Url/bitstring>>, _] = ContactList) ->
-    case nostrlib_url:check(Url) of
-        {ok, Url} ->
-            contact_list3(ContactList);
-         ->
-    
-
-
-
-
-% @hidden
-encode_contact_list(Tags, Opts) ->
-    Event = #event{ kind = contact_list, tags = Tags, content = <<>> },
-    nostrlib:encode(Event, Opts).
-
-% @hidden
--spec encode_contact_list_test() -> any().
-encode_contact_list_test() ->
-    [].
-
-%%--------------------------------------------------------------------
-%% @hidden
-%%--------------------------------------------------------------------
-get_connection(Host) ->
-    case pg:get_members(client, {Host, connection}) of
+get_process(Host, Identifier) 
+  when is_atom(Identifier) ->
+    case pg:get_members(client, {Host, Identifier}) of
         [] -> {error, [{host, Host}, {connection, not_connected}]};
-        [Connection] -> {ok, Connection}
+        [Process] -> {ok, Process};
+        [Process|_] -> {ok, Process}
     end.
-            
