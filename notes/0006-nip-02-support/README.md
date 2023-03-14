@@ -23,7 +23,6 @@ R25](https://www.erlang.org/news/157) running on
 [OPENBSD-72-CURRENT](openbsd.org/) and [Parrot
 Linux](https://parrotsec.org/) (a Debian like distribution).
 
-
 # NIP/02 Support: Contact List and Petname
 
 The identity is the most important piece of the whole structure. An

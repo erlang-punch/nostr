@@ -20,7 +20,10 @@
 -record(state, { store = undefined }).
 
 %%--------------------------------------------------------------------
+%% @doc
 %%
+%% @see gen_server:start/3
+%% @end
 %%--------------------------------------------------------------------
 -spec start(Args) -> Return when
       Args :: proplists:proplists(),
@@ -30,7 +33,10 @@ start(Args) ->
     gen_server:start(?MODULE, Args, []).
 
 %%--------------------------------------------------------------------
+%% @doc
 %%
+%% @see gen_server:start_link/3
+%% @end
 %%--------------------------------------------------------------------
 -spec start_link(Args) -> Return when
       Args :: proplists:proplists(),
@@ -39,7 +45,10 @@ start_link(Args) ->
     gen_server:start_link(?MODULE, Args, []).
 
 %%--------------------------------------------------------------------
+%% @doc
 %%
+%% @see gen_server:init/1
+%% @end
 %%--------------------------------------------------------------------
 -spec init(Args) -> Return when
       Args :: proplists:proplists(),
@@ -52,7 +61,10 @@ init(Args) ->
     {ok, #state{ store = Store}}.
 
 %%--------------------------------------------------------------------
+%% @doc
 %%
+%% @see gen_server:terminate/2
+%% @end
 %%--------------------------------------------------------------------
 -spec terminate(Reason, State) -> Return when
       Reason :: term(),
@@ -62,7 +74,10 @@ terminate(_Reason, _State) ->
     ok.
 
 %%--------------------------------------------------------------------
+%% @doc
 %%
+%% @see gen_server:handle_cast/2
+%% @end
 %%--------------------------------------------------------------------
 -spec handle_cast(Message, State) -> Return when
       Message :: to_be_defined(),
@@ -70,7 +85,7 @@ terminate(_Reason, _State) ->
       Return :: to_be_defined().
 
 handle_cast(publish, #state{ store = Store } = State) ->
-    Event = to_event(Store),
+    Event = ets_to_event(Store),
     % need to find a way to set the private key:
     {ok, Encoded} = nostrlib:encode(Event, [{private_key, <<1:256>>}]),
     ?LOG_DEBUG("~p", [Encoded]),
@@ -94,7 +109,10 @@ handle_cast(Message, State) ->
     {noreply, State}.
 
 %%--------------------------------------------------------------------
+%% @doc
 %%
+%% @see gen_server:handle_call/3
+%% @end
 %%--------------------------------------------------------------------
 -spec handle_call(Message, From, State) -> Return when
       Message :: to_be_defined(),
@@ -103,7 +121,7 @@ handle_cast(Message, State) ->
       Return :: to_be_defined().
 
 handle_call(export, _, #state{ store = Store } = State) ->
-    Event = to_event(Store),
+    Event = ets_to_event(Store),
     {reply, Event, State};
 handle_call(list, _, #state{ store = Store } = State) ->
     List = ets:tab2list(Store),
@@ -113,7 +131,10 @@ handle_call(Message, From, State) ->
     {reply, ok, State}.
 
 %%--------------------------------------------------------------------
+%% @doc
 %%
+%% @see gen_server:handle_info/2
+%% @end
 %%--------------------------------------------------------------------
 -spec handle_info(Message, State) -> Return when
       Message :: to_be_defined(),
@@ -125,7 +146,9 @@ handle_info(Message, State) ->
     {noreply, State}.
 
 %%--------------------------------------------------------------------
+%% @doc `convert/1' converts a contact entry to a `#tag{}' record.
 %%
+%% @end
 %%--------------------------------------------------------------------
 convert({PublicKey, ContactName, MainRelay}) ->
     #tag{ name = public_key
@@ -133,7 +156,13 @@ convert({PublicKey, ContactName, MainRelay}) ->
         , params = [MainRelay, ContactName]
         }.
 
-to_event(Ets) ->
+%%--------------------------------------------------------------------
+%% @doc `ets_to_event/1' converts the contact list present in the ETS
+%% to an `#event{}' record.
+%%
+%% @end
+%%--------------------------------------------------------------------
+ets_to_event(Ets) ->
     List = ets:tab2list(Ets),
     Tags = lists:map(fun convert/1, List),
     #event{ content = <<>>
@@ -142,7 +171,9 @@ to_event(Ets) ->
           }.
 
 %%--------------------------------------------------------------------
-%% @doc
+%% @doc `add/2'.
+%%
+%% @see add/3
 %% @end
 %%--------------------------------------------------------------------
 -spec add(any(), any()) -> ok.
@@ -150,7 +181,18 @@ add(Pid, PublicKey) ->
     add(Pid, PublicKey, []).
 
 %%--------------------------------------------------------------------
-%% @doc
+%% @doc `add/3' function adds a new contact or update an existing one
+%% in the ETS table.
+%%
+%% == Examples ==
+%%
+%% ```
+%% ok = nostr_client_contacts:add(Pid, <<1:256>>).
+%% ok = nostr_client_contacts:add(Pid, <<1:256>>, [{name, Name}]).
+%% ok = nostr_client_contacts:add(Pid, <<1:256>>, [{name, Name}
+%%                                                ,{relay, Relay}]).
+%% '''
+%%
 %% @end
 %%--------------------------------------------------------------------
 -spec add(any(), any(), any()) -> ok.
@@ -160,7 +202,14 @@ add(Pid, <<PublicKey:256/bitstring>>, Opts) ->
     gen_server:cast(Pid, {add, {contact, PublicKey, ContactName, MainRelay}}).
 
 %%--------------------------------------------------------------------
-%% @doc
+%% @doc `delete/2' deletes a contact in the database.
+%%
+%% == Examples ==
+%%
+%% ```
+%% ok = nostr_client_contacts:delete(Pid, <<1:256>>).
+%% '''
+%%
 %% @end
 %%--------------------------------------------------------------------
 -spec delete(any(), any()) -> ok.
@@ -168,7 +217,14 @@ delete(Pid, <<PublicKey:256/bitstring>>) ->
     gen_server:cast(Pid, {delete, {contact, PublicKey, undefined, undefined}}).
 
 %%--------------------------------------------------------------------
-%% @doc
+%% @doc `publish/1' function publishes to the current server.
+%%
+%% == Examples ==
+%%
+%% ```
+%% ok = nostr_client_contacts:publish(Pid).
+%% '''
+%%
 %% @end
 %%--------------------------------------------------------------------
 -spec publish(any()) -> ok.
@@ -176,7 +232,14 @@ publish(Pid) ->
     gen_server:cast(Pid, publish).
 
 %%--------------------------------------------------------------------
-%% @doc
+%% @doc `import/2' function import a contact list from a public key.
+%%
+%% == Examples ==
+%%
+%% ```
+%% ok = nostr_client_contacts:import(Pid, <<1:256>>).
+%% '''
+%%
 %% @end
 %%--------------------------------------------------------------------
 -spec import(any(), any()) -> ok.
@@ -184,7 +247,14 @@ import(Pid, PublicKey) ->
     gen_server:cast(Pid, {import, PublicKey}).
 
 %%--------------------------------------------------------------------
-%% @doc
+%% @doc `export/1' function exports the contact as `#event{}'.
+%%
+%% == Examples ==
+%%
+%% ```
+%% Event = nostr_client_contacts:export(Pid).
+%% '''
+%%
 %% @end
 %%--------------------------------------------------------------------
 -spec export(any()) -> ok.
@@ -192,7 +262,14 @@ export(Pid) ->
     gen_server:call(Pid, export).
 
 %%--------------------------------------------------------------------
-%% @doc
+%% @doc `list/1' function list return the contacts as list.
+%%
+%% == Examples ==
+%%
+%% ```
+%% ContactList = nostr_client_contacts:list(Pid).
+%% '''
+%%
 %% @end
 %%--------------------------------------------------------------------
 -spec list(any()) -> ok.
