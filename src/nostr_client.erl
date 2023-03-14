@@ -36,6 +36,7 @@
 -export([event/4]).
 -export([request/2, request/3]).
 -export([close/2, close/3]).
+-export([get_process/2]).
 % -export([add_contact/2, add_contact/3, del_contact/2]).
 -include_lib("eunit/include/eunit.hrl").
 -include_lib("kernel/include/logger.hrl").
@@ -204,8 +205,12 @@ close(Host, SubscriptionId, Opts) ->
 %% @doc
 %% @end
 %%--------------------------------------------------------------------
-get_process(Host, Identifier) 
-  when is_atom(Identifier) ->
+-spec get_process(Host, Identifier) -> Return when
+      Host :: string(),
+      Identifier :: atom(),
+      Return :: {ok, pid()}.
+
+get_process(Host, Identifier) ->
     case pg:get_members(client, {Host, Identifier}) of
         [] -> {error, [{host, Host}, {connection, not_connected}]};
         [Process] -> {ok, Process};

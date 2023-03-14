@@ -29,8 +29,10 @@
 -export([handle_cast/2, handle_call/3, handle_info/2]).
 -include_lib("kernel/include/logger.hrl").
 -include("nostrlib.hrl").
--record(state, { subscription_id = undefined
-               , connection_pid = undefined
+-record(state, { subscription_id = undefined :: binary()
+               , consumer        = undefined :: pid()
+               , filter          = undefined :: #filter{}
+               , host            = undefined :: string()
                }).
 
 %%--------------------------------------------------------------------
@@ -59,10 +61,15 @@ start_link(Args) ->
       Args :: proplists:proplists(),
       Return :: {ok, to_be_defined()} | {stop, to_be_defined()}.
 init(Args) ->
-    ConnectionPid = proplists:get_value(connection_pid, Args),
-    SubscriptionId = proplists:get_value(subscription_id, Args),
+    Consumer = proplists:get_value(consumer, Args, undefined),
+    Host = proplists:get_value(host, Args, undefined),
+    Filter = proplists:get_value(filter, Args, undefined),
+    SubscriptionId = nostrlib:new_subscription_id(),
+    pg:join(client, {Host, {subscription, SubscriptionId}}, self()),
     State = #state{ subscription_id = SubscriptionId
-                  , connection_pid = ConnectionPid
+                  , host = Host
+                  , filter = Filter
+                  , consumer = Consumer
                   },
     {ok, State}.
 

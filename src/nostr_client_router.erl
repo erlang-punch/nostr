@@ -98,15 +98,24 @@ terminate(_Reason, _State) ->
       Return :: to_be_defined().
 
 % receive a raw message and do all the parser/router magic
-handle_cast({raw, Data} = Message, State) ->
-    ?LOG_DEBUG("~p", [{?MODULE, self(), cast, Message, State}]),
+handle_cast({connection, Host, Data} = _Message, State) ->
     case nostrlib:decode(Data) of
-        {ok, #subscription{ content = #event{ id = Id, kind = Kind } } = Parsed, Labels} ->
-            ?LOG_DEBUG("~p", [{?MODULE, self(), parsed, {Parsed, Labels}, State}]),
-            file:write_file(filename:join(<<"_data">>, [Kind, <<"-">>, base64:encode(Id)]), Data);
+        {ok, #subscription{ id = SubscriptionId
+                          , content = #event{ id = _Id
+                                            , kind = _Kind }} = Parsed, Labels} ->
+            {ok, Subscription} = nostr_client:get_process(Host, {subscription, SubscriptionId}),
+            Subscription ! Parsed,
+            ?LOG_DEBUG("~p", [{?MODULE, self(), parsed, {Parsed, Labels}, State}]);
+            % file:write_file(filename:join(<<"_data">>, [Kind, <<"-">>, base64:encode(Id)]), Data);
+
         Elsewise ->
             ?LOG_DEBUG("~p", [{?MODULE, self(), parsed, Elsewise, State}])
     end,
+    {noreply, State};
+
+    
+handle_cast({raw, _Data} = Message, State) ->
+    ?LOG_DEBUG("old: ~p", [{?MODULE, self(), cast, Message, State}]),
     {noreply, State};
 
 handle_cast(Message, State) ->

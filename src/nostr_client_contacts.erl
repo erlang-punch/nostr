@@ -10,14 +10,18 @@
 -export([start_link/1]).
 -export([add/2, add/3]).
 -export([delete/2]).
--export([publish/1]).
--export([export/1, import/2]).
+-export([publish/2]).
+-export([export/1, export/2]).
+-export([import/2]).
 -export([list/1]).
 -export([init/1, terminate/2]).
 -export([handle_cast/2, handle_call/3, handle_info/2]).
 -include_lib("kernel/include/logger.hrl").
 -include("nostrlib.hrl").
--record(state, { store = undefined }).
+-record(state, { identity = undefined
+               , host = undefined
+               , store = undefined 
+               }).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -58,7 +62,10 @@ init(Args) ->
     Host = proplists:get_value(host, Args, undefined),
     pg:join(client, {Host, contacts}, self()),
     Store = ets:new(?MODULE, []),
-    {ok, #state{ store = Store}}.
+    State = #state{ store = Store
+                  , host = Host
+                  },
+    {ok, State}.
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -84,11 +91,19 @@ terminate(_Reason, _State) ->
       State :: to_be_defined(),
       Return :: to_be_defined().
 
-handle_cast(publish, #state{ store = Store } = State) ->
+%% handle_cast({import, PrivateKey}, #state{ host = Host, store = Store } = State) ->
+%%     Event = ets_to_event(Store),
+%%     {ok, Encoded} = nostrlib:encode(Event, [{private_key, PrivateKey}]),
+%%     {ok, Connection} = nostr_client:get_process(Host, connection),
+%%     nostr_client_connection:send_raw(Connection, Encoded),
+%%     {noreply, State};
+
+% publish the contact list to a relay
+handle_cast({publish, PrivateKey}, #state{ host = Host, store = Store } = State) ->
     Event = ets_to_event(Store),
-    % need to find a way to set the private key:
-    {ok, Encoded} = nostrlib:encode(Event, [{private_key, <<1:256>>}]),
-    ?LOG_DEBUG("~p", [Encoded]),
+    {ok, Encoded} = nostrlib:encode(Event, [{private_key, PrivateKey}]),
+    {ok, Connection} = nostr_client:get_process(Host, connection),
+    nostr_client_connection:send_raw(Connection, Encoded),
     {noreply, State};
 
 % delete a contact present in the database
@@ -120,7 +135,7 @@ handle_cast(Message, State) ->
       State :: to_be_defined(),
       Return :: to_be_defined().
 
-handle_call(export, _, #state{ store = Store } = State) ->
+handle_call({export, _}, _, #state{ store = Store } = State) ->
     Event = ets_to_event(Store),
     {reply, Event, State};
 handle_call(list, _, #state{ store = Store } = State) ->
@@ -217,7 +232,7 @@ delete(Pid, <<PublicKey:256/bitstring>>) ->
     gen_server:cast(Pid, {delete, {contact, PublicKey, undefined, undefined}}).
 
 %%--------------------------------------------------------------------
-%% @doc `publish/1' function publishes to the current server.
+%% @doc `publish/2' function publishes to the current server.
 %%
 %% == Examples ==
 %%
@@ -227,9 +242,9 @@ delete(Pid, <<PublicKey:256/bitstring>>) ->
 %%
 %% @end
 %%--------------------------------------------------------------------
--spec publish(any()) -> ok.
-publish(Pid) ->
-    gen_server:cast(Pid, publish).
+-spec publish(any(), any()) -> ok.
+publish(Pid, PrivateKey) ->
+    gen_server:cast(Pid, {publish, PrivateKey}).
 
 %%--------------------------------------------------------------------
 %% @doc `import/2' function import a contact list from a public key.
@@ -249,6 +264,15 @@ import(Pid, PublicKey) ->
 %%--------------------------------------------------------------------
 %% @doc `export/1' function exports the contact as `#event{}'.
 %%
+%% @see export/2
+%% @end
+%%--------------------------------------------------------------------
+-spec export(any()) -> ok.
+export(Pid) ->
+    export(Pid, []).
+%%--------------------------------------------------------------------
+%% @doc `export/1' function exports the contact as `#event{}'.
+%%
 %% == Examples ==
 %%
 %% ```
@@ -257,9 +281,9 @@ import(Pid, PublicKey) ->
 %%
 %% @end
 %%--------------------------------------------------------------------
--spec export(any()) -> ok.
-export(Pid) ->
-    gen_server:call(Pid, export).
+-spec export(any(), proplists:proplists()) -> ok.
+export(Pid, Opts) ->
+    gen_server:call(Pid, {export, Opts}).
 
 %%--------------------------------------------------------------------
 %% @doc `list/1' function list return the contacts as list.

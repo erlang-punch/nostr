@@ -21,6 +21,7 @@
 -export([start_router_sup/2, spec_router_sup/1]).
 -export([start_subscription_sup/2, spec_subscription_sup/1]).
 -export([start_connection_sup/2, spec_connection_sup/1]).
+-export([start_contacts/2, spec_contacts/1]).
 -include("nostrlib.hrl").
 
 %%--------------------------------------------------------------------
@@ -56,6 +57,7 @@ children(Args) ->
     , spec_router_sup(Args)
     , spec_subscription_sup(Args)
     , spec_connection_sup(Args)
+    , spec_contacts(Args)
     ].
 
 %%--------------------------------------------------------------------
@@ -164,3 +166,28 @@ spec_controller_sup(Args) ->
       Return :: supervisor:startchild_ret().
 start_controller_sup(Pid, Args) ->
     supervisor:start_child(Pid, spec_controller_sup(Args)).
+
+
+%%--------------------------------------------------------------------
+%% @doc
+%% @end
+%%--------------------------------------------------------------------
+-spec spec_contacts(Args) -> Return when
+      Args :: proplists:proplists(),
+      Return :: supervisor:child_spec().
+spec_contacts(Args) ->
+    #{ id => nostr_client_contacts
+     , start => {nostr_client_contacts, start_link, [Args]}
+     , type => worker
+     }.
+
+%%--------------------------------------------------------------------
+%% @doc
+%% @end
+%%--------------------------------------------------------------------
+-spec start_contacts(Pid, Args) -> Return when
+      Pid :: supervisor:sup_ref(),
+      Args :: proplists:proplists(),
+      Return :: supervisor:startchild_ret().
+start_contacts(Pid, Args) ->
+    supervisor:start_child(Pid, spec_contacts(Args)).
