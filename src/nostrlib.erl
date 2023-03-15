@@ -92,21 +92,24 @@ encode(Message) ->
 %% nostrlib:encode(#event{ kind = set_metadata, content = <<>>}
 %%                ,[{private_key, PrivateKey}]).
 %%
-%% nostrlib:encode(
 %%
 %% '''
 %%
 %% @todo add examples
+%% @todo add support to return record instead of bitstring.
 %% @end
 %%--------------------------------------------------------------------
 -spec encode(Message, Opts) -> Return when
       Message :: message(),
-      Opts :: proplists:proplists(),
-      Return :: iodata().
+      Opts :: [ {private_key, <<_:256>>}
+              | {as_record, boolean()}
+              ],
+      Return :: iodata() | decoded_message().
 
 encode(#event{} = Event, Opts) ->
     case encode_event(Event, Opts) of
-        {ok, Encoded} -> {ok, to_json(Encoded)};
+        {ok, [<<"EVENT">>|_] = Encoded} -> {ok, to_json(Encoded)};
+        {ok, #event{} = Encoded} -> {ok, Encoded};
         Elsewise -> Elsewise
     end;
 encode(#subscription{} = Subscription, Opts) ->
@@ -486,8 +489,10 @@ encode_event_tags(#event{ tags = Tags} = Event, Opts, Buffer)
 %%--------------------------------------------------------------------
 % @todo add support for 64bits unix timestamp
 encode_event_created_at(#event{ created_at = undefined } = Event, Opts, Buffer) ->
-    Next = Buffer#{ <<"created_at">> => erlang:system_time(seconds) },
-    encode_event_public_key(Event, Opts, Next);
+    CreatedAt = erlang:system_time(seconds),
+    NextEvent = Event#event{ created_at = CreatedAt },
+    Next = Buffer#{ <<"created_at">> => CreatedAt },
+    encode_event_public_key(NextEvent, Opts, Next);
 encode_event_created_at(#event{ created_at = {{_,_,_},{_,_,_}} = CreatedAt } = Event, Opts, Buffer) ->
     Next = Buffer#{ <<"created_at">> => erlang:universaltime_to_posixtime(CreatedAt) },
     encode_event_public_key(Event, Opts, Next);
@@ -523,8 +528,9 @@ encode_event_public_key(#event{ public_key = <<PublicKey/bitstring>>}, _Opts, _B
 encode_event_id(#event{ id = undefined } = Event, Opts, Buffer) ->
     case create_id(Buffer) of
         {ok, Id} ->
+            NextEvent = Event#event{ id = hex_to_binary(Id) },
             Next = Buffer#{ <<"id">> => Id },
-            encode_event_signature(Event, Opts, Next);
+            encode_event_signature(NextEvent, Opts, Next);
         Elsewise -> Elsewise
     end;
 encode_event_id(#event{ id = <<Id:256/bitstring>> } = Event, Opts, Buffer) ->
@@ -542,8 +548,9 @@ encode_event_signature(#event{ signature = undefined } = Event, Opts, #{ <<"id">
         undefined -> {error, [{private_key, undefined}]};
         <<PrivateKey:256/bitstring>> ->
             {ok, Signature} = create_signature(Id, PrivateKey),
+            NextEvent = Event#event{ signature = Signature },
             Next = Buffer#{ <<"sig">> => binary_to_hex(Signature) },
-            encode_event_final(Event, Opts, Next)
+            encode_event_final(NextEvent, Opts, Next)
     end;
 encode_event_signature(#event{ signature = <<Signature:512/bitstring>> } = Event, Opts, Buffer) ->
     case verify(Event) of
@@ -559,8 +566,13 @@ encode_event_signature(#event{ signature = Signature }, _Opts, _Buffer) ->
 %%--------------------------------------------------------------------
 %% @hidden
 %%--------------------------------------------------------------------
-encode_event_final(_Event, _Opts, Buffer) ->
-    {ok, [<<"EVENT">>, Buffer]}.
+encode_event_final(Event, Opts, Buffer) ->
+    case proplists:get_value(as_record, Opts, false) of
+        false ->
+            {ok, [<<"EVENT">>, Buffer]};
+        true ->
+            {ok, Event}
+    end.
 
 %%--------------------------------------------------------------------
 %% @doc internal function.
@@ -1026,7 +1038,12 @@ verify(BinId, BinPublicKey, BinSignature) ->
       PrivateKey :: decoded_private_key(),
       Event :: {ok, event()}.
 
-sign(#event{ id = Id } = Event, PrivateKey) ->
+sign(#event{ id = undefined } = Event, PrivateKey) ->
+    case create_id(Event) of
+        {ok, Id} -> sign(Event#event{ id = Id }, PrivateKey);
+        Elsewise -> Elsewise
+    end;
+sign(#event{ id = <<Id:256/bitstring>> } = Event, PrivateKey) ->
     HexId = nostrlib:hex_to_binary(Id),
     {ok, RawSignature} = nostrlib_schnorr:sign(HexId, PrivateKey),
     HexSignature = nostrlib:binary_to_hex(RawSignature),
