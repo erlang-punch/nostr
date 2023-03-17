@@ -1,75 +1,83 @@
 %%%===================================================================
-%%% @doc `nostr_manager_relay_sup' creates new group of relay
-%%% processes to manage a `nostr' server.
+%%% @doc DRAFT
 %%%
+%%% @todo improve start_relay_listener/2 function
 %%% @end
 %%% @author Mathieu Kerjouan <contact at erlang-punch.com>
 %%%===================================================================
--module(nostr_manager_relay_sup).
--behaviour(supervisor).
--export([start_link/0]).
+-module(nostr_relay_sup).
+-behavior(supervisor).
+-export([start_link/1]).
 -export([init/1]).
--export([spec_relay_sup/1, start_relay_sup/1]).
+-export([start_relay_listener/2, spec_relay_listener/1]).
+-include("nostrlib.hrl").
 
 %%--------------------------------------------------------------------
-%%
+%% @doc
+%% @end
 %%--------------------------------------------------------------------
--spec start_link() -> Return when
+-spec start_link(Args) -> Return when
+      Args :: proplists:proplists(),
       Return :: supervisor:startlink_ret().
-start_link() ->
-    supervisor:start_link({local, ?MODULE}, ?MODULE, []).
+start_link(Args) ->
+    supervisor:start_link(?MODULE, Args).
 
 %%--------------------------------------------------------------------
-%%
+%% @doc
+%% @end
 %%--------------------------------------------------------------------
 -spec init(Args) -> Return when
       Args :: proplists:proplists(),
       Return :: {ok,{SupFlags,[ChildSpec]}} | ignore,
       SupFlags :: supervisor:sup_flags(),
-      ChildSpec :: [supervisor:child_spec(), ...].
-init([]) ->
-    State = {supervisor(), children()},
+      ChildSpec :: supervisor:child_spec().
+init(Args) ->
+    Children = children(Args),
+    State = {supervisor(), Children},
     {ok, State}.
 
 %%--------------------------------------------------------------------
-%%
+%% @doc
+%% @end
 %%--------------------------------------------------------------------
--spec supervisor() -> Return when
-      Return :: supervisor:sup_flags().
+children(Args) ->
+    [ spec_relay_listener(Args)
+    ].
+
+%%--------------------------------------------------------------------
+%% @doc
+%% @end
+%%--------------------------------------------------------------------
 supervisor() ->
     #{ strategy => one_for_one
-     , intensity => 0
-     , period => 1
      }.
-
-%%--------------------------------------------------------------------
-%%
-%%--------------------------------------------------------------------
--spec children() -> Return when
-      Return :: [supervisor:child_spec(), ...].
-children() ->
-    [].
 
 %%--------------------------------------------------------------------
 %% @doc
 %% @end
 %%--------------------------------------------------------------------
--spec spec_relay_sup(Args) -> Return when
+-spec spec_relay_listener(Args) -> Return when
       Args :: proplists:proplists(),
       Return :: supervisor:child_spec().
-spec_relay_sup(Args) ->
-    #{ id => {{nostr_relay_sup, Args}}
-     , start => {nostr_relay_sup, start_link, [Args]}
-     , type => supervisor
+spec_relay_listener(Args) ->
+    Port = proplists:get_value(port, Args, 4000),
+    Name = {nostr_relay_listener, Port},
+    TransportOpts = [{port, Port}],
+    Routes = [{'_', [{"/", nostr_relay_handler, []}]}],
+    Dispatch = cowboy_router:compile(Routes),
+    ProtocolOpts = #{ env => #{ dispatch => Dispatch }},
+    #{ id => {nostr_relay_listener, Port}
+     , start => {cowboy, start_clear, [Name, TransportOpts, ProtocolOpts]}
+     , type => worker
      }.
 
 %%--------------------------------------------------------------------
 %% @doc
 %% @end
 %%--------------------------------------------------------------------
--spec start_relay_sup(Args) -> Return when
+-spec start_relay_listener(Pid, Args) -> Return when
+      Pid :: supervisor:sup_ref(),
       Args :: proplists:proplists(),
       Return :: supervisor:startchild_ret().
-start_relay_sup(Args) ->
-    supervisor:start_child(?MODULE, spec_relay_sup(Args)).
-
+start_relay_listener(Pid, Args) ->
+    supervisor:start_child(Pid, spec_relay_listener(Args)).

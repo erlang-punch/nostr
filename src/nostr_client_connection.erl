@@ -235,25 +235,43 @@ init(Args) ->
     Transport = proplists:get_value(transport, Args, tls),
     Path = proplists:get_value(path, Args, "/"),
     WebSocketOptions = proplists:get_value(websocket_opts, Args, []),
-    CACerts = proplists:get_value(cacerts, Args, public_key:cacerts_get()),
-    TLSOpts = [ {verify, verify_peer}
-              , {cacerts, CACerts}
-              ],
-    ConnectionOpts = #{ transport => Transport
-                      , tls_opts => TLSOpts
+    
+    case proplists:get_value(tls, Args, true) of
+        true ->
+            CACerts = proplists:get_value(cacerts, Args, public_key:cacerts_get()),
+            TLSOpts = [ {verify, verify_peer}
+                      , {cacerts, CACerts}
+                      ],
+            ConnectionOpts = #{ transport => Transport
+                              , tls_opts => TLSOpts
                       },
-    {ok, Connection} = gun:open(Host, Port, ConnectionOpts),
-    Ref = gun:ws_upgrade(Connection, Path, WebSocketOptions),
+            {ok, Connection} = gun:open(Host, Port, ConnectionOpts),
+            Ref = gun:ws_upgrade(Connection, Path, WebSocketOptions),
 
-    % @TODO the id must be defined with something different
-    pg:join(client, {Host, connection}, self()),
+            % @TODO the id must be defined with something different
+            pg:join(client, {Host, connection}, self()),
 
-    State = #state{ connection = Connection
-                  , websocket = Ref
-                  , arguments = Args
-                  },
-    ?LOG_INFO("~p", [{?MODULE, self(), init, Args, State}]),
-    {ok, State}.
+            State = #state{ connection = Connection
+                          , websocket = Ref
+                          , arguments = Args
+                          },
+            ?LOG_INFO("~p", [{?MODULE, self(), init, Args, State}]),
+            {ok, State};
+        false ->
+            ConnectionOpts = #{},
+            {ok, Connection} = gun:open(Host, Port, ConnectionOpts),
+            Ref = gun:ws_upgrade(Connection, Path, WebSocketOptions),
+
+            % @TODO the id must be defined with something different
+            pg:join(client, {Host, connection}, self()),
+
+            State = #state{ connection = Connection
+                          , websocket = Ref
+                          , arguments = Args
+                          },
+            ?LOG_INFO("~p", [{?MODULE, self(), init, Args, State}]),
+            {ok, State}
+        end.
 
 %%--------------------------------------------------------------------
 %% @doc `terminate/2' function terminates the current running process.

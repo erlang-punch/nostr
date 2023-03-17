@@ -29,6 +29,9 @@
 %%% '''
 %%%
 %%% @todo replace host by another ID.
+%%% @todo create a disconnect function
+%%% @todo improve the options to pass to other function
+%%% @todo remove debug support in parameters
 %%% @end
 %%%===================================================================
 -module(nostr_client).
@@ -75,7 +78,7 @@ connect(Host) ->
       Return :: any(). % TODO: check the return function of gun module.
 
 connect(Host, Options) ->
-    nostr_manager_client_sup:start_client_sup([{host, Host}, {options, Options}]).
+    nostr_manager_client_sup:start_client_sup([{host, Host}] ++ Options).
 
 %%--------------------------------------------------------------------
 %% @doc `event/4' function send an event to an active connection.
