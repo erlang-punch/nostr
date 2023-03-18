@@ -58,7 +58,7 @@ children() ->
       Args :: proplists:proplists(),
       Return :: supervisor:child_spec().
 spec_relay_sup(Args) ->
-    #{ id => {{nostr_relay_sup, Args}}
+    #{ id => {nostr_relay_sup, Args}
      , start => {nostr_relay_sup, start_link, [Args]}
      , type => supervisor
      }.

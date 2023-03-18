@@ -37,17 +37,62 @@
 %%%
 %%% TODO
 %%%
-%%% == Usage ==
+%%% == Client Usage ==
+%%%
+%%% Client connection management.
 %%%
 %%% ```
-%%% nostr_client:list().
-%%% nostr_client:connect(ClientId).
-%%% nostr_client:subscribe(ClientId, Filter).
-%%% nostr_client:unsubscribe(ClientId, SubscribtionId).
-%%% nostr_client:send(ClientId, short_text_note, <<"my message">>).
-%%% nostr_client:send(ClientId, reaction, MessageId, like).
-%%% nostr_client:send(ClientId, reaction, MessageId, dislike).
-%%% nostr_client:disconnect(ClientId).
+%%% % connect to a server
+%%% nostr_client:connect(<<"wss://nostr.com">>).
+%%% nostr_client:connect(<<"wss://nostr.com">>, []).
+%%% nostr_client:connect(<<"ws://nostr.com">>, []).
+%%% nostr_client:disconnect(<<"wss://nostr.com">>).
+%%% '''
+%%%
+%%% Identity management.
+%%%
+%%% ```
+%%% % create a new identity
+%%% Identifier = <<"testuser">>.
+%%% IdentityOpts = [{name, <<>>}, {about, <<"">>}
+%%%                ,{picture, <<>>}, {server, <<>>}].
+%%% nostr_client:new_identity(Identifier).
+%%% nostr_client:new_identity(Identifier, IdentityOpts).
+%%%
+%%% % list identity
+%%% [Identity|_] = nostr_client:list_identity().
+%%% '''
+%%%
+%%% Subscription management.
+%%%
+%%% ```
+%%% % create a new subscription
+%%% Relay = <<"wss://nostr.com">>.
+%%% Filter = #filter{}.
+%%% {ok, SubId} = nostr_client:new_subscription(Relay, Filter).
+%%% {ok, [_|_]} = nostr_client:list_subscription().
+%%% {ok, [_|_]} = nostr_client:list_subscription(Relay).
+%%% ok = nostr_client:delete_subscription(SubId).
+%%% '''
+%%%
+%%% Contact management.
+%%%
+%%% ```
+%%% % create a new contact_list
+%%% nostr_client:add_contact(Identity, PubKey).
+%%% nostr_client:add_contact(Identity, PubKey, []).
+%%% nostr_client:delete_contact(Identity, PubKey).
+%%% nostr_client:publish_contact(Identity).
+%%% nostr_client:publish_contact(Identity, Relay).
+%%% nostr_client:import_contact(Identity, Relay).
+%%% '''
+%%%
+%%% Event management.
+%%%
+%%% ```
+%%% {ok, TextNote} = nostr_client:new_event(text_note, Identity, <<"note">>).
+%%% {ok, _} = nostr_client:publish_event(TextNote, Relay).
+%%% {ok, [_|_]} = nostr_client:publish_event(Text_event, [Relay1, Relay2]).
 %%% '''
 %%%
 %%% @end

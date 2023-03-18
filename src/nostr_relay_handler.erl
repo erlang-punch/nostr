@@ -45,9 +45,15 @@ websocket_init(State) ->
       State :: term(),
       Return :: cowboy_websocket:commands().
 
-websocket_handle(Frame, State) ->
+websocket_handle({text, Frame}, State) ->
     ?LOG_DEBUG("~p",[{?MODULE, self(), websocket_handle, Frame, State}]),
-    {[{text, <<"[]">>}], State}.
+    case nostrlib:decode(Frame) of
+        {ok, _Decoded, _Labels} ->
+            {[{active, true}], State};
+        _Elsewise ->
+            Encoded = thoas:encode([<<"ERROR">>]),
+            {[{text, Encoded}], State}
+    end.
 
 %%--------------------------------------------------------------------
 %%
