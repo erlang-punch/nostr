@@ -7,12 +7,12 @@
 -export([start_link/1]).
 -export([init/1, terminate/2]).
 -export([handle_call/3, handle_cast/2, handle_info/2]).
--export([add/3]).
+-export([add/3, export/1]).
 -include("nostrlib.hrl").
 -record(state, { ets = undefined }).
 
 %%--------------------------------------------------------------------
-%% @doc start a new listener.
+%% @doc start a new store.
 %% @todo fix the specification
 %% @end
 %%--------------------------------------------------------------------
@@ -23,7 +23,7 @@ start_link(Args) ->
     gen_server:start(?MODULE, Args, []).
 
 %%--------------------------------------------------------------------
-%% @doc initialize a new listener.
+%% @doc initialize a new store.
 %% @todo fix the specifications
 %% @todo add multi port/domain support
 %% @end
@@ -39,7 +39,7 @@ init(Args) ->
     {ok, State}.
 
 %%--------------------------------------------------------------------
-%% @doc stop a listener
+%% @doc stop a store
 %% @todo fix the specifications
 %% @end
 %%--------------------------------------------------------------------
@@ -51,7 +51,7 @@ terminate(_Reason, _State) ->
     ok.
 
 %%--------------------------------------------------------------------
-%% @doc stop the process if a message is received.
+%% @doc 
 %% @end
 %%--------------------------------------------------------------------
 -spec handle_cast(Message, State) -> Return when
@@ -63,7 +63,7 @@ handle_cast({add, #event{ id = Id } = Message}, #state{ ets = Ets } = State) ->
     {noreply, State}.
     
 %%--------------------------------------------------------------------
-%% @doc stop the process if a message is received.
+%% @doc 
 %% @end
 %%--------------------------------------------------------------------
 -spec handle_call(Message, From, State) -> Return when
@@ -71,11 +71,12 @@ handle_cast({add, #event{ id = Id } = Message}, #state{ ets = Ets } = State) ->
       From :: any(),
       State :: #state{ ets :: reference() },
       Return :: {reply, ok, State}.
-handle_call(_Message, _From, State) ->
-    {reply, ok, State}.
+handle_call(export, _From, #state{ ets = Ets} = State) ->
+    Return = ets:tab2list(Ets),
+    {reply, Return, State}.
 
 %%--------------------------------------------------------------------
-%% @doc stop the process if a message is received.
+%% @doc 
 %% @end
 %%--------------------------------------------------------------------
 -spec handle_info(Message, State) -> Return when
@@ -86,7 +87,8 @@ handle_info(_Message, State) ->
     {noreply, State}.
     
 %%--------------------------------------------------------------------
-%%
+%% @doc
+%% @end
 %%--------------------------------------------------------------------
 -spec add(Message, Labels, Args) -> Return when
       Message :: any(),
@@ -99,6 +101,23 @@ add(Message, _Labels, Args) ->
     case pg:get_members(relay, {?MODULE, Port, Domain}) of
         [Pid] ->
             gen_server:cast(Pid, {add, Message});
+        [] ->
+            {error, ?MODULE}
+    end.
+
+%%--------------------------------------------------------------------
+%% @doc
+%% @end
+%%--------------------------------------------------------------------
+-spec export(Args) -> Return when
+      Args :: proplists:proplists(),
+      Return :: any().
+export(Args) ->
+    Port = proplists:get_value(port, Args),
+    Domain = proplists:get_value(domain, Args),
+    case pg:get_members(relay, {?MODULE, Port, Domain}) of
+        [Pid] ->
+            gen_server:call(Pid, export);
         [] ->
             {error, ?MODULE}
     end.
