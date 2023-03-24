@@ -10,6 +10,7 @@
 -export([start_link/1]).
 -export([init/1]).
 -export([start_relay_listener/2, spec_relay_listener/1]).
+-export([start_relay_store/2, spec_relay_store/1]).
 -include("nostrlib.hrl").
 
 %%--------------------------------------------------------------------
@@ -42,6 +43,7 @@ init(Args) ->
 %%--------------------------------------------------------------------
 children(Args) ->
     [ spec_relay_listener(Args)
+    , spec_relay_store(Args)
     ].
 
 %%--------------------------------------------------------------------
@@ -61,13 +63,8 @@ supervisor() ->
       Return :: supervisor:child_spec().
 spec_relay_listener(Args) ->
     Port = proplists:get_value(port, Args, 4000),
-    Name = {nostr_relay_listener, Port},
-    TransportOpts = [{port, Port}],
-    Routes = [{'_', [{"/", nostr_relay_handler, []}]}],
-    Dispatch = cowboy_router:compile(Routes),
-    ProtocolOpts = #{ env => #{ dispatch => Dispatch }},
     #{ id => {nostr_relay_listener, Port}
-     , start => {cowboy, start_clear, [Name, TransportOpts, ProtocolOpts]}
+     , start => {nostr_relay_listener, start_link, [Args]}
      , type => worker
      }.
 
@@ -81,3 +78,29 @@ spec_relay_listener(Args) ->
       Return :: supervisor:startchild_ret().
 start_relay_listener(Pid, Args) ->
     supervisor:start_child(Pid, spec_relay_listener(Args)).
+
+%%--------------------------------------------------------------------
+%% @doc
+%% @end
+%%--------------------------------------------------------------------
+-spec spec_relay_store(Args) -> Return when
+      Args :: proplists:proplists(),
+      Return :: supervisor:child_spec().
+spec_relay_store(Args) ->
+    Port = proplists:get_value(port, Args, 4000),
+    #{ id => {nostr_relay_store, Port}
+     , start => {nostr_relay_store, start_link, [Args]}
+     , type => worker
+     }.
+
+%%--------------------------------------------------------------------
+%% @doc
+%% @end
+%%--------------------------------------------------------------------
+-spec start_relay_store(Pid, Args) -> Return when
+      Pid :: supervisor:sup_ref(),
+      Args :: proplists:proplists(),
+      Return :: supervisor:startchild_ret().
+start_relay_store(Pid, Args) ->
+    supervisor:start_child(Pid, spec_relay_store(Args)).
+

@@ -48,7 +48,8 @@ websocket_init(State) ->
 websocket_handle({text, Frame}, State) ->
     ?LOG_DEBUG("~p",[{?MODULE, self(), websocket_handle, Frame, State}]),
     case nostrlib:decode(Frame) of
-        {ok, _Decoded, _Labels} ->
+        {ok, Decoded, Labels} ->
+            nostr_relay_store:add(Decoded, Labels, State),
             {[{active, true}], State};
         _Elsewise ->
             Encoded = thoas:encode([<<"ERROR">>]),

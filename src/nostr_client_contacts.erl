@@ -91,6 +91,7 @@ terminate(_Reason, _State) ->
       State :: to_be_defined(),
       Return :: to_be_defined().
 
+%% @TODO: import a list from a private key
 %% handle_cast({import, PrivateKey}, #state{ host = Host, store = Store } = State) ->
 %%     Event = ets_to_event(Store),
 %%     {ok, Encoded} = nostrlib:encode(Event, [{private_key, PrivateKey}]),
