@@ -87,7 +87,7 @@ handle_info(_Message, State) ->
     {noreply, State}.
     
 %%--------------------------------------------------------------------
-%% @doc
+%% @doc add a new message in ets store.
 %% @end
 %%--------------------------------------------------------------------
 -spec add(Message, Labels, Args) -> Return when
@@ -106,7 +106,7 @@ add(Message, _Labels, Args) ->
     end.
 
 %%--------------------------------------------------------------------
-%% @doc
+%% @doc exports the content of the ets as list.
 %% @end
 %%--------------------------------------------------------------------
 -spec export(Args) -> Return when
