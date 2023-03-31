@@ -50,6 +50,7 @@ websocket_handle({text, Frame}, State) ->
     case nostrlib:decode(Frame) of
         {ok, Decoded, Labels} ->
             nostr_relay_store:add(Decoded, Labels, State),
+            nostr_relay_subscription:forward(Decoded, Labels),
             {[{active, true}], State};
         _Elsewise ->
             Encoded = thoas:encode([<<"ERROR">>]),

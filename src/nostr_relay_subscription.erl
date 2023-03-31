@@ -89,17 +89,32 @@
 %%%===================================================================
 -module(nostr_relay_subscription).
 -export([forward/1, forward/2]).
+-export([start_link/1]).
 -include("nostrlib.hrl").
-% -behavior(gen_server).
-% -export([init/1, terminate/2]).
-% -export([handle_cast/2, handle_info/2, handle_call/3]).
-% -record(state, { id = undefined }).
+-include_lib("kernel/include/logger.hrl").
+-behavior(gen_server).
+-export([init/1, terminate/2]).
+-export([handle_cast/2, handle_info/2, handle_call/3]).
+-record(state, { id = undefined }).
+
+%%--------------------------------------------------------------------
+%% @doc
+%% @end
+%%--------------------------------------------------------------------
+-spec start_link(Args) -> Return when
+      Args :: proplists:proplists(),
+      Return :: {ok, pid()}.
+start_link(Args) ->
+    gen_server:start_link(?MODULE, Args, []).
 
 %%--------------------------------------------------------------------
 %% @doc `forward/1' forward an event to a subscription process from
 %% the current pool of process.
 %%
 %% @see forward/2
+%% @todo this function is not designed correctly, we can set port/domain
+%%       when we need to forward an event, except if the event can embed
+%%       those information, is it a good idea?
 %% @end
 %% --------------------------------------------------------------------
 -spec forward(Event) -> Return when
@@ -107,7 +122,7 @@
       Return :: ok.
           
 forward(Event) ->
-    case nostr_relay:get_process(subscription) of
+    case nostr_relay:get_process(?MODULE, []) of
         {ok, Pid} ->
             forward(Pid, Event);
         Elsewise ->
@@ -124,3 +139,66 @@ forward(Event) ->
       Return :: ok.
 forward(Pid, #event{} = Event) ->
     gen_server:cast(Pid, Event).
+
+%%--------------------------------------------------------------------
+%% @doc 
+%% @end
+%%--------------------------------------------------------------------
+-spec init(Args) -> Return when
+      Args :: proplists:proplists(),
+      Return :: {ok, #state{}}.
+init(Args) ->
+    Port = proplists:get_value(port, Args, 4000),
+    Domain = proplists:get_value(domain, Args, '_'),
+    pg:join(relay, {?MODULE, Port, Domain}, self()),
+    State = #state{},
+    {ok, State}.
+
+%%--------------------------------------------------------------------
+%% @doc
+%% @end
+%%--------------------------------------------------------------------
+-spec terminate(Reason, State) -> Return when
+      Reason :: any(),
+      State :: #state{},
+      Return :: ok.
+terminate(_Reason, _State) ->
+    ok.
+
+%%--------------------------------------------------------------------
+%% @doc 
+%% @end
+%%--------------------------------------------------------------------
+-spec handle_cast(Message, State) -> Return when
+      Message :: any(),
+      State :: #state{},
+      Return :: {noreply, State}.
+handle_cast(Message, State) ->
+    ?LOG_DEBUG("~p", [{?MODULE, self(), handle_cast, Message, State}]),
+    {noreply, State}.
+    
+%%--------------------------------------------------------------------
+%% @doc 
+%% @end
+%%--------------------------------------------------------------------
+-spec handle_call(Message, From, State) -> Return when
+      Message :: any(),
+      From :: any(),
+      State :: #state{},
+      Return :: {reply, ok, State}.
+handle_call(Message, From, State) ->
+    ?LOG_DEBUG("~p", [{?MODULE, self(), handle_call, Message, From, State}]),
+    {reply, Message, State}.
+
+%%--------------------------------------------------------------------
+%% @doc 
+%% @end
+%%--------------------------------------------------------------------
+-spec handle_info(Message, State) -> Return when
+      Message :: any(),
+      State :: #state{},
+      Return :: {noreply, State}.
+handle_info(Message, State) ->
+    ?LOG_DEBUG("~p", [{?MODULE, self(), handle_info, Message, State}]),
+    {noreply, State}.
+

@@ -11,6 +11,7 @@
 -export([init/1]).
 -export([start_relay_listener/2, spec_relay_listener/1]).
 -export([start_relay_store/2, spec_relay_store/1]).
+-export([start_relay_subscription_sup/2, spec_relay_subscription_sup/1]).
 -include("nostrlib.hrl").
 
 %%--------------------------------------------------------------------
@@ -44,6 +45,7 @@ init(Args) ->
 children(Args) ->
     [ spec_relay_listener(Args)
     , spec_relay_store(Args)
+    , spec_relay_subscription_sup(Args)
     ].
 
 %%--------------------------------------------------------------------
@@ -103,4 +105,29 @@ spec_relay_store(Args) ->
       Return :: supervisor:startchild_ret().
 start_relay_store(Pid, Args) ->
     supervisor:start_child(Pid, spec_relay_store(Args)).
+
+%%--------------------------------------------------------------------
+%% @doc
+%% @end
+%%--------------------------------------------------------------------
+-spec spec_relay_subscription_sup(Args) -> Return when
+      Args :: proplists:proplists(),
+      Return :: supervisor:child_spec().
+spec_relay_subscription_sup(Args) ->
+    Port = proplists:get_value(port, Args, 4000),
+    #{ id => {nostr_relay_subscription_sup, Port}
+     , start => {nostr_relay_subscription_sup, start_link, [Args]}
+     , type => worker
+     }.
+
+%%--------------------------------------------------------------------
+%% @doc
+%% @end
+%%--------------------------------------------------------------------
+-spec start_relay_subscription_sup(Pid, Args) -> Return when
+      Pid :: supervisor:sup_ref(),
+      Args :: proplists:proplists(),
+      Return :: supervisor:startchild_ret().
+start_relay_subscription_sup(Pid, Args) ->
+    supervisor:start_child(Pid, spec_relay_subscription_sup(Args)).
 
