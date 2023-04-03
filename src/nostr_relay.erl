@@ -68,4 +68,3 @@ get_process(Name, Args) ->
         [] -> {error, not_started};
         [P|_] -> {ok, P}
     end.
-            
