@@ -5,6 +5,9 @@
 -module(nostr_relay_store_mnesia).
 -export([init/1, terminate/1, insert/1, lookup/1, delete/1, select/3]).
 -include("nostrlib.hrl").
+% -record(subscriptions, { id = undefined :: bitstring()
+%                        , filter = undefined 
+%                       }).
 
 %%--------------------------------------------------------------------
 %% @doc initialize the database.
@@ -16,8 +19,26 @@
 init(_Args) ->
     mnesia:start(),
     mnesia:create_table(event, [{attributes, record_info(fields, event)}]),
+    index(event),
     mnesia:create_table(subscription, [{attributes, record_info(fields, subscription)}]),
+    index(subscription),
     ok.
+
+%%--------------------------------------------------------------------
+%% @doc
+%% @end
+%%--------------------------------------------------------------------
+index(event) ->
+    Fun = fun() ->
+                  mnesia:add_table_index(event, id),
+                  mnesia:add_table_index(event, created_at)
+          end,
+    mnesia:transaction(Fun);
+index(subscription) ->
+    Fun = fun() ->
+                  mnesia:add_table_index(subscription, id)
+          end,
+    mnesia:transaction(Fun).
 
 %%--------------------------------------------------------------------
 %% @doc terminate the database (drop everything).
@@ -39,7 +60,7 @@ terminate(_Args) ->
       Return :: ok | {ok, any()} | {error, any()}.
 insert(#event{} = Event) ->
     Fun = fun() -> mnesia:write(Event) end,
-    mnesia:transaction(Fun).
+   mnesia:transaction(Fun).
 
 %%--------------------------------------------------------------------
 %% @doc lookup for an entry in the database.

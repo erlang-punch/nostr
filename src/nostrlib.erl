@@ -490,7 +490,8 @@ encode_event_tags(#event{ tags = Tags} = Event, Opts, Buffer)
 % @todo add support for 64bits unix timestamp
 encode_event_created_at(#event{ created_at = undefined } = Event, Opts, Buffer) ->
     CreatedAt = erlang:system_time(seconds),
-    NextEvent = Event#event{ created_at = CreatedAt },
+    UniversalTime = erlang:posixtime_to_universaltime(CreatedAt),
+    NextEvent = Event#event{ created_at = UniversalTime },
     Next = Buffer#{ <<"created_at">> => CreatedAt },
     encode_event_public_key(NextEvent, Opts, Next);
 encode_event_created_at(#event{ created_at = {{_,_,_},{_,_,_}} = CreatedAt } = Event, Opts, Buffer) ->
