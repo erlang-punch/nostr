@@ -37,15 +37,15 @@
 %%% % 3. (ok) get the public key
 %%% {ok, PublicKey} = nostr_client_key:public_key(Pid).
 %%%
-%%% % 4. set the "name" field associated with the key
+%%% % 4. (ok) set the "name" field associated with the key
 %%% ok = nostr_client_key:set_metadata(Pid, name, <<"my_new_name">>).
 %%% {ok, <<"my_new_name>>} = nostr_client_key:get_metadata(Pid, name).
 %%%
-%%% % 5. set the "about" field associated with the key
+%%% % 5. (ok) set the "about" field associated with the key
 %%% ok = nostr_client_key:set_metadata(Pid, about, <<"This is about me">>).
 %%% {ok, <<"This is about me">>} = nostr_client_key:get_metadata(Pid, about).
 %%%
-%%% % 6. set the "picture" field associated with the key
+%%% % 6. (ok) set the "picture" field associated with the key
 %%% ok = nostr_client_key:set_metadata(Pid, picture, <<"https://...">>
 %%% {ok, <<"https://...">>} = nostr_client_key:get_metadata(Pid, picture).
 %%%
@@ -63,6 +63,7 @@
 %%% an encrypted DETS could be a good solution.
 %%% @todo creates a way to generate automatically the `set_metadata'
 %%% event as an export to a server
+%%%
 %%% @end
 %%%===================================================================
 -module(nostr_client_key).
