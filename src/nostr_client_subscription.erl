@@ -1,4 +1,5 @@
 %%%===================================================================
+%%% @author Mathieu Kerjouan <contact at erlang-punch.com>
 %%% @doc `nostr_client_subscription' module was created to managed
 %%% individual subscription per client. This module will also be in
 %%% charge to deal with the actions when a message is coming with a
@@ -19,7 +20,6 @@
 %%% '''
 %%%
 %%% @end
-%%% @author Mathieu Kerjouan <contact at erlang-punch.com>
 %%% ===================================================================
 -module(nostr_client_subscription).
 -behaviour(gen_server).
