@@ -65,10 +65,13 @@
 %%% BEAM. When metadata changes when encrypted, exported data MUST BE
 %%% encrypted as well.
 %%%
+%%% @todo add process group support
 %%% @todo instead of converting raw Erlang data into base64, using 
-%%% an encrypted DETS could be a good solution.
+%%% an encrypted DETS could be a good solution. Another solution is
+%%% to use functions present in `crypto' and `public_key' modules.
 %%% @todo creates a way to generate automatically the `set_metadata'
 %%% event as an export to a server
+%%% @todo add more specifications.
 %%%
 %%% @end
 %%%===================================================================
@@ -76,6 +79,7 @@
 -behavior(gen_server).
 -export([start/1]).
 -export([start_link/1]).
+-export([stop/1]).
 -export([public_key/1, private_key/1]).
 -export([export_metadata/1]).
 -export([sync/1, reload/1]).
@@ -100,7 +104,11 @@
 -define(DEFAULT_FILE_MODE, 33152).
 
 %%--------------------------------------------------------------------
-%% @doc
+%% @doc `start/1' starts a new `nostr_client_key' process without
+%% link.
+%%
+%% @see init/1
+%% @see gen_server:start/1
 %% @end
 %%--------------------------------------------------------------------
 -spec start(Args) -> Return when
@@ -110,7 +118,10 @@ start(Args) ->
     gen_server:start(?MODULE, Args, []).
 
 %%--------------------------------------------------------------------
-%% @doc
+%% @doc `start_link/1' starts a new linked `nostr_client_key'.
+%%
+%% @see init/1
+%% @see gen_server:start_link/1
 %% @end
 %%--------------------------------------------------------------------
 -spec start_link(Args) -> Return when
@@ -120,15 +131,30 @@ start_link(Args) ->
     gen_server:start_link(?MODULE, Args, []).
 
 %%--------------------------------------------------------------------
-%% @doc Here the init steps:
+%% @doc `stop/1' is a wrapper around `gen_server:stop/1'.
+%% @end
+%%--------------------------------------------------------------------
+-spec stop(Pid) -> Return when
+      Pid :: pid(),
+      Return :: ok.
+stop(Pid) ->
+    gen_server:stop(Pid).
+
+%%--------------------------------------------------------------------
+%% @hidden
+%% @doc internal.
 %%
-%% 1. get the name of the user (identifier) if not -> crash
-%% 2. get the store path if not -> crash
-%% 3. check if the path exist if not -> create it or crash
-%% 4. ensure the directory has correct right and access (0700)
-%% 5. if a file called `id_secp256k1' exist -> load it or goto 6
-%% 6. generate a new private key and store it in `id_secp256k1'
-%% 7. start the gen server with the correct states
+%% Here the initialization steps:
+%%
+%% <ul>
+%%  <ol>get the name of the user (identifier) if not -> crash</ol>
+%%  <ol>get the store path if not -> crash</ol>
+%%  <ol>check if the path exist if not -> create it or crash</ol>
+%%  <ol>ensure the directory has correct right and access (0700)</ol>
+%%  <ol>if a file called `id_secp256k1' exist -> load it or goto 6</ol>
+%%  <ol>generate a new private key and store it in `id_secp256k1'</ol>
+%%  <ol>start the gen server with the correct states</ol>
+%% </ul>
 %%
 %% @end
 %%--------------------------------------------------------------------
@@ -141,8 +167,11 @@ init(Args) ->
     init_name(Name, State).
 
 %%--------------------------------------------------------------------
-%% @doc internal. init_name/2 function check if the name given is 
-%% valid or not.
+%% @hidden
+%% @doc internal. 
+%%
+%% `init_name/2' function check if the name given is valid or not.
+%%
 %% @end
 %%--------------------------------------------------------------------
 init_name(undefined, State) ->
@@ -158,8 +187,12 @@ init_name(Name, State) ->
     {stop, [{message, "wrong name"}, {name, Name}]}.
 
 %%--------------------------------------------------------------------
-%% @doc internal. `init_path/1' function will modify the state to
-%% configure the valid store path.
+%% @hidden
+%% @doc internal. 
+%%
+%% `init_path/1' function will modify the state to configure the valid
+%% store path.
+%%
 %% @end
 %%--------------------------------------------------------------------
 init_path(#state{ name = Name } = State) ->
@@ -177,8 +210,12 @@ init_path(#state{ name = Name } = State) ->
     end.
 
 %%--------------------------------------------------------------------
-%% @doc internal. `init_directory_check/1' checks ONLY if the
-%% directory exists or not.
+%% @hidden
+%% @doc internal. 
+%%
+%% `init_directory_check/1' checks ONLY if the directory exists or
+%% not.
+%%
 %% @end
 %%--------------------------------------------------------------------
 init_directory_check(#state{ store_path = StorePath } = State) ->
@@ -192,7 +229,11 @@ init_directory_check(#state{ store_path = StorePath } = State) ->
     end.
 
 %%--------------------------------------------------------------------
-%% @doc internal. `init_directory_create/1' creates store directory.
+%% @hidden
+%% @doc internal. 
+%%
+%% `init_directory_create/1' creates store directory.
+%%
 %% @end
 %%--------------------------------------------------------------------
 init_directory_create(#state{ store_path = StorePath } = State) ->
@@ -204,8 +245,12 @@ init_directory_create(#state{ store_path = StorePath } = State) ->
     end.
 
 %%--------------------------------------------------------------------
-%% @doc internal. `init_directory_mode/1' ensures store directory was
-%% created with the correct mode, if not, it will fix it.
+%% @hidden
+%% @doc internal. 
+%%
+%% `init_directory_mode/1' ensures store directory was created with
+%% the correct mode, if not, it will fix it.
+%%
 %% @end
 %%--------------------------------------------------------------------
 init_directory_mode(#state{ store_path = StorePath } = State) ->
@@ -223,6 +268,14 @@ init_directory_mode(#state{ store_path = StorePath } = State) ->
             {store, Elsewise}
     end.
 
+%%--------------------------------------------------------------------
+%% @hidden
+%% @doc internal.
+%%
+%% `init_private_key/1' check if a key is already present.
+%%
+%% @end
+%%--------------------------------------------------------------------
 init_private_key(#state{ store_path = StorePath } = State) ->
     KeyPath = filename:join(StorePath, ?DEFAULT_KEY_FILENAME),
     NewState = State#state{ private_key_path = KeyPath },
@@ -233,6 +286,11 @@ init_private_key(#state{ store_path = StorePath } = State) ->
             init_private_key_generate(NewState)
     end.
 
+%%--------------------------------------------------------------------
+%% @hidden
+%% @doc internal.
+%% @end
+%%--------------------------------------------------------------------
 init_private_key_generate(State) ->
     {ok, PrivateKey} = nostrlib_schnorr:new_privatekey(),
     {ok, PublicKey} = nostrlib_schnorr:new_publickey(PrivateKey),
@@ -241,12 +299,22 @@ init_private_key_generate(State) ->
                           },
     init_private_key_store(NewState).
 
+%%--------------------------------------------------------------------
+%% @hidden
+%% @doc internal.
+%% @end
+%%--------------------------------------------------------------------
 init_private_key_store(State) ->
     case store_private_key(State) of
         {ok, NewState} -> {ok, NewState};
         Elsewise -> {stop, Elsewise}
     end.
 
+%%--------------------------------------------------------------------
+%% @hidden
+%% @doc internal.
+%% @end
+%%--------------------------------------------------------------------
 init_private_key_load(State) ->
     case load_private_key(State) of
         {ok, NewState} -> {ok, NewState};
@@ -254,7 +322,8 @@ init_private_key_load(State) ->
     end.
 
 %%--------------------------------------------------------------------
-%% @doc
+%% @hidden
+%% @doc internal.
 %% @end
 %%--------------------------------------------------------------------
 -spec terminate(any(), any()) -> ok.
@@ -267,7 +336,8 @@ terminate(_, _State) ->
     ok.
 
 %%--------------------------------------------------------------------
-%% @doc
+%% @hidden
+%% @doc internal.
 %%
 %% @todo create the revocation process, if a new key is generated 
 %%       over a new one, it should be stored somewhere and not 
@@ -316,7 +386,8 @@ handle_cast(_Message, State) ->
     {noreply, State}.
 
 %%--------------------------------------------------------------------
-%% @doc
+%% @hidden
+%% @doc internal.
 %% @end
 %%--------------------------------------------------------------------
 -spec handle_call(Message, From, State) -> Return when
@@ -355,7 +426,8 @@ handle_call(_Message, _From, State) ->
     {reply, ok, State}.
 
 %%--------------------------------------------------------------------
-%% @doc
+%% @hidden
+%% @doc internal.
 %% @end
 %%--------------------------------------------------------------------
 -spec handle_info(Message, State) ->  Return when
@@ -366,7 +438,8 @@ handle_info(_Message, State) ->
     {noreply, State}.
 
 %%--------------------------------------------------------------------
-%% @doc
+%% @hidden
+%% @doc internal.
 %% @end
 %%--------------------------------------------------------------------
 -spec store_dir() -> Return when
@@ -380,7 +453,9 @@ store_dir() ->
     end.
 
 %%--------------------------------------------------------------------
-%%
+%% @hidden
+%% @doc internal.
+%% @end
 %%--------------------------------------------------------------------
 store_private_key(#state{ private_key_path = Path
                         , private_key = PrivateKey
@@ -402,6 +477,7 @@ store_private_key(#state{ private_key_path = Path
     end.
 
 %%--------------------------------------------------------------------
+%% @hidden
 %% @doc internal.
 %%
 %% @todo ensure the key is using the correct right before loading
@@ -426,6 +502,11 @@ load_private_key(#state{ private_key_path = PrivateKeyPath} = State) ->
             Elsewise
     end.
 
+%%--------------------------------------------------------------------
+%% @hidden
+%% @doc internal.
+%% @end
+%%--------------------------------------------------------------------
 binary_to_term_maybe(Binary) ->
     try 
         Term = binary_to_term(Binary),
@@ -435,7 +516,10 @@ binary_to_term_maybe(Binary) ->
     end.
 
 %%--------------------------------------------------------------------
+%% @doc (API) `private_key/1' returns the private key stored in the
+%% store.
 %%
+%% @end
 %%--------------------------------------------------------------------
 -spec private_key(Pid) -> Return when
       Pid :: pid(),
@@ -444,7 +528,10 @@ private_key(Pid) ->
     gen_server:call(Pid, {get, private_key}).
 
 %%--------------------------------------------------------------------
+%% @doc (API) `public_key/1' returns the public key based on the
+%% private key stored.
 %%
+%% @end
 %%--------------------------------------------------------------------
 -spec public_key(Pid) -> Return when
       Pid :: pid(),
@@ -453,7 +540,7 @@ public_key(Pid) ->
     gen_server:call(Pid, {get, public_key}).
 
 %%--------------------------------------------------------------------
-%% @doc `set_metadata/3' add or overwrite a key present in the
+%% @doc (API) `set_metadata/3' add or overwrite a key present in the
 %% metadata
 %%
 %% @end
@@ -468,7 +555,7 @@ set_metadata(Pid, Key, <<Value/binary>>)
     gen_server:cast(Pid, {set, metadata, Key, Value}).
 
 %%--------------------------------------------------------------------
-%% @doc `get_metadata/2' gets the value from the metadata.
+%% @doc (API) `get_metadata/2' gets the value from the metadata.
 %%
 %% @end
 %%--------------------------------------------------------------------
@@ -480,8 +567,9 @@ get_metadata(Pid, Key) when is_atom(Key) ->
     gen_server:call(Pid, {get, metadata, Key}).
 
 %%--------------------------------------------------------------------
-%% @doc `export_metadata/1' function exports the content of the metadata
-%%       stored with the key.
+%% @doc (API) `export_metadata/1' function exports the content of the
+%% metadata stored with the key.
+%%
 %% @end
 %%--------------------------------------------------------------------
 -spec export_metadata(Pid) -> Return when
@@ -491,7 +579,8 @@ export_metadata(Pid) ->
     gen_server:call(Pid, {export, metadata}).
 
 %%--------------------------------------------------------------------
-%% @doc `sync/1' write private_key and metadata on the disk.
+%% @doc (API) `sync/1' write private_key and metadata on the disk.
+%%
 %% @end
 %%--------------------------------------------------------------------
 -spec sync(Pid) -> Return when
@@ -501,8 +590,9 @@ sync(Pid) ->
     gen_server:cast(Pid, sync).
 
 %%--------------------------------------------------------------------
-%% @doc `reload/1' loads the content of the file and overwrite the one
-%% present in the process.
+%% @doc (API) `reload/1' loads the content of the file and overwrite
+%% the one present in the process.
+%%
 %% @end
 %%--------------------------------------------------------------------
 -spec reload(Pid) -> Return when
