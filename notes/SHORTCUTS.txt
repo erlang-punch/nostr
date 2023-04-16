@@ -29,7 +29,7 @@ least, it works to insert data in the database (events). The
 subscription will also be inserted into the database but the procedure
 will be a bit different...
 
-== 2023-04-04: shortcut_23_03
+== 2023-04-04: shortcut_23/03
 
 So yesterday, we were working on relay store and a mnesia
 backend. let's continue.
@@ -84,7 +84,7 @@ What kind of messages we need to support there? Well. We need to:
 The main function created there was the initialization part of
 nostr_client_key.
     
-== 2023-04-04: shortcut_23/05
+== 2023-04-04: shortcut_23/06
     
 finalizing the initialization part of the nostr_client_key module
 using gen_server. This shortcut implemented a way to generate,
@@ -95,14 +95,14 @@ looks good :)
     
 See you for the next ones ;)
 
-== 2023-04-16: shortcut_23/06
+== 2023-04-16: shortcut_23/07
 
  + cleaned up nostr_client_key interfaces
  + created nostr_client_key:export_metadata/1 as JSON
  + added comments on terminate/2 function
  ! tests are required
 
-== 2023-04-16: shortcut_23/07
+== 2023-04-16: shortcut_23/08
 
   + wrote tests for nostr_client_key:export_metadata
   + export the metadata with the private key
@@ -114,7 +114,7 @@ See you for the next ones ;)
   ! need more documentation on these features.
   ! ensure the file generated is not corrupted
 
-== 2023-04-16: shortcut_23/08
+== 2023-04-16: shortcut_23/09
 
   + use a bitstring instead of atom in the proplist
   + fix a bug with the mode used for the file generated
@@ -123,3 +123,5 @@ See you for the next ones ;)
   + one file will be created for all shorcuts.
   ! tests should be added to ensure its working correctly
   ! need more documentation
+
+== 2023-04-XX: shortcut_23/10
