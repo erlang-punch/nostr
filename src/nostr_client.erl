@@ -163,7 +163,7 @@ request(Host, Filter, Opts) ->
         {ok, Connection} ->
             SubscriptionId = nostrlib:new_subscription_id(),
             Request = #request{ subscription_id = SubscriptionId
-                                    , filter = Filter },
+                              , filter = Filter },
             {ok, Payload} = nostrlib:encode(Request, Opts),
             ok = nostr_client_connection:send_raw(Connection, Payload),
             {ok, SubscriptionId};

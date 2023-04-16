@@ -49,8 +49,14 @@
 %%% ok = nostr_client_key:set_metadata(Pid, picture, <<"https://...">>
 %%% {ok, <<"https://...">>} = nostr_client_key:get_metadata(Pid, picture).
 %%%
-%%% % 7. export metadata
-%%% {ok, #event{} = Event} = nostr_client_key:export(Pid).
+%%% % 7. (ok) export metadata
+%%% {ok, #event{} = Event} = nostr_client_key:export_metadata(Pid).
+%%%
+%%% % 8. (ok) manually sync the file on the disk
+%%% ok = nostr_client_key:sync(Pid).
+%%%
+%%% % 9. (ok) manually reload the file on the disk
+%%% ok = nostr_client_key:reload(Pid).
 %%% '''
 %%%
 %%% == Notes ==
@@ -71,6 +77,8 @@
 -export([start/1]).
 -export([start_link/1]).
 -export([public_key/1, private_key/1]).
+-export([export_metadata/1]).
+-export([sync/1, reload/1]).
 -export([set_metadata/3, get_metadata/2]).
 -export([init/1, terminate/2]).
 -export([handle_cast/2, handle_call/3, handle_info/2]).
@@ -89,7 +97,7 @@
 -define(DEFAULT_KEY_FILENAME, <<"id_secp256k1">>).
 -define(DEFAULT_DIRECTORY_MODE, 16832).
 % @todo change DEFAULT_FILE_MODE to 0600 
--define(DEFAULT_FILE_MODE, 33024).
+-define(DEFAULT_FILE_MODE, 33152).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -250,7 +258,12 @@ init_private_key_load(State) ->
 %% @end
 %%--------------------------------------------------------------------
 -spec terminate(any(), any()) -> ok.
-terminate(_,_) ->
+terminate(normal, _State) ->
+    % @todo synchronize the file on the file system
+    ok;
+terminate(_, _State) ->
+    % @todo an error was raised somewhere, synchronize and check if
+    % everything is fine.
     ok.
 
 %%--------------------------------------------------------------------
@@ -274,24 +287,29 @@ terminate(_,_) ->
 %%                           , public_key = PublicKey
 %%                           },
 %%     {noreply, NewState};
-handle_cast(store, State) ->
+handle_cast(sync, State) ->
+    % @todo fix this part of the code, we should probably return
+    %       an error when something goes wrong.
     case store_private_key(State) of
         {ok, NewState} -> {noreply, NewState};
         {error, NewState} -> {noreply, NewState}
     end;
-handle_cast({set_metadata, name, Value}, #state{ metadata = Metadata } = State)
+handle_cast(reload, State) ->
+    {ok, NewState} = load_private_key(State),
+    {noreply, NewState};
+handle_cast({set, metadata, name, Value}, #state{ metadata = Metadata } = State)
   when is_binary(Value) ->
-    NewMetadata = maps:put(name, Value, Metadata),
+    NewMetadata = maps:put(<<"name">>, Value, Metadata),
     NewState = State#state{metadata = NewMetadata},
     {noreply, NewState};
-handle_cast({set_metadata, about, Value}, #state{ metadata = Metadata } = State)
+handle_cast({set, metadata, about, Value}, #state{ metadata = Metadata } = State)
   when is_binary(Value) ->
-    NewMetadata = maps:put(about, Value, Metadata),
+    NewMetadata = maps:put(<<"about">>, Value, Metadata),
     NewState = State#state{metadata = NewMetadata},
     {noreply, NewState};
-handle_cast({set_metadata, picture, Value}, #state{ metadata = Metadata } = State)
+handle_cast({set, metadata, picture, Value}, #state{ metadata = Metadata } = State)
   when is_binary(Value) ->
-    NewMetadata = maps:put(picture, Value, Metadata),
+    NewMetadata = maps:put(<<"picture">>, Value, Metadata),
     NewState = State#state{metadata = NewMetadata},
     {noreply, NewState};
 handle_cast(_Message, State) ->
@@ -308,8 +326,27 @@ handle_cast(_Message, State) ->
       Return :: {reply, ReplyExport, State},
       ReplyExport :: {ok, PrivateKey},
       PrivateKey :: binary().
-handle_call({get_metadata, Key}, _From, #state{ metadata = Metadata } = State) ->
-    {reply, {ok, maps:get(Key, Metadata, undefined)}, State};
+handle_call({export, metadata}, _From, #state{ metadata = Metadata
+                                             , private_key = PrivateKey
+                                             , public_key = PublicKey 
+                                             } = State) ->
+    Event = #event{ kind = set_metadata
+                  , content = thoas:encode(Metadata)
+                  , public_key = PublicKey
+                  },
+    Opts = [{private_key, PrivateKey}
+           ,{as_record, true}
+           ],
+    case nostrlib:encode(Event, Opts) of
+        {ok, _} = Result -> {reply, Result, State};
+        {error, _} = Error -> {reply, Error, State}
+    end;
+handle_call({get, metadata, name}, _From, #state{ metadata = Metadata } = State) ->
+    {reply, {ok, maps:get(<<"name">>, Metadata, undefined)}, State};
+handle_call({get, metadata, about}, _From, #state{ metadata = Metadata } = State) ->
+    {reply, {ok, maps:get(<<"about">>, Metadata, undefined)}, State};
+handle_call({get, metadata, picture}, _From, #state{ metadata = Metadata } = State) ->
+    {reply, {ok, maps:get(<<"picture">>, Metadata, undefined)}, State};
 handle_call({get, private_key}, _From, #state{ private_key = PrivateKey} = State) ->
     {reply, {ok, PrivateKey}, State};
 handle_call({get, public_key}, _From, #state{ public_key = PublicKey} = State) ->
@@ -347,9 +384,13 @@ store_dir() ->
 %%--------------------------------------------------------------------
 store_private_key(#state{ private_key_path = Path
                         , private_key = PrivateKey
+                        , metadata = Metadata
                         } = State) ->
-    Base64 = base64:encode(PrivateKey),
-    case file:write_file(Path, Base64) of
+    Store = [{<<"private_key">>, PrivateKey}
+            ,{<<"metadata">>, Metadata}],
+    Encoded = erlang:term_to_binary(Store),
+    Base64 = base64:encode(Encoded),
+    case file:write_file(Path, Base64, [read,write]) of
         ok ->
             % @todo ensure the file is using correct mode
             file:change_mode(Path, ?DEFAULT_FILE_MODE),
@@ -370,15 +411,27 @@ store_private_key(#state{ private_key_path = Path
 load_private_key(#state{ private_key_path = PrivateKeyPath} = State) ->
     case file:read_file(PrivateKeyPath) of
         {ok, Base64} ->
-            PrivateKey = base64:decode(Base64),
+            Term = base64:decode(Base64),
+            {ok, Proplist} = binary_to_term_maybe(Term),
+            PrivateKey = proplists:get_value(<<"private_key">>, Proplist, undefined),
+            Metadata = proplists:get_value(<<"metadata">>, Proplist, #{}),
             {ok, PublicKey} = nostrlib_schnorr:new_publickey(PrivateKey),
             NewState = State#state{ private_key = PrivateKey
                                   , public_key = PublicKey
+                                  , metadata = Metadata
                                   , sync = erlang:system_time()
                                   },
             {ok, NewState};
         Elsewise ->
             Elsewise
+    end.
+
+binary_to_term_maybe(Binary) ->
+    try 
+        Term = binary_to_term(Binary),
+        {ok, Term}
+    catch
+        _:_ -> {error, Binary}
     end.
 
 %%--------------------------------------------------------------------
@@ -412,7 +465,7 @@ public_key(Pid) ->
       Return :: ok.
 set_metadata(Pid, Key, <<Value/binary>>) 
   when Key =:= name orelse Key =:= about orelse Key =:= picture ->
-    gen_server:cast(Pid, {set_metadata, Key, Value}).
+    gen_server:cast(Pid, {set, metadata, Key, Value}).
 
 %%--------------------------------------------------------------------
 %% @doc `get_metadata/2' gets the value from the metadata.
@@ -424,4 +477,36 @@ set_metadata(Pid, Key, <<Value/binary>>)
       Key :: name | about | picture,      
       Return :: {ok, undefined | binary()}.
 get_metadata(Pid, Key) when is_atom(Key) ->
-    gen_server:call(Pid, {get_metadata, Key}).
+    gen_server:call(Pid, {get, metadata, Key}).
+
+%%--------------------------------------------------------------------
+%% @doc `export_metadata/1' function exports the content of the metadata
+%%       stored with the key.
+%% @end
+%%--------------------------------------------------------------------
+-spec export_metadata(Pid) -> Return when
+      Pid :: pid(),
+      Return :: {ok, #event{}}.
+export_metadata(Pid) ->
+    gen_server:call(Pid, {export, metadata}).
+
+%%--------------------------------------------------------------------
+%% @doc `sync/1' write private_key and metadata on the disk.
+%% @end
+%%--------------------------------------------------------------------
+-spec sync(Pid) -> Return when
+      Pid :: pid(),
+      Return :: ok.
+sync(Pid) ->
+    gen_server:cast(Pid, sync).
+
+%%--------------------------------------------------------------------
+%% @doc `reload/1' loads the content of the file and overwrite the one
+%% present in the process.
+%% @end
+%%--------------------------------------------------------------------
+-spec reload(Pid) -> Return when
+      Pid :: pid(),
+      Return :: ok.
+reload(Pid) ->
+    gen_server:cast(Pid, reload).

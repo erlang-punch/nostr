@@ -71,6 +71,15 @@ simple(_Config) ->
     ok = nostr_client_key:set_metadata(Pid, picture, <<"test_picture">>),
     {ok, <<"test_picture">>} = nostr_client_key:get_metadata(Pid, picture),
 
+    % export the metadata as event
+    {ok, #event{ content = <<"{\"about\":\"test_about\",",
+                             "\"name\":\"test_name\",",
+                             "\"picture\":\"test_picture\"}">>
+               , kind = set_metadata
+               , public_key = PublicKey
+               }
+    } = nostr_client_key:export_metadata(Pid),
+     
     % start a new process with the same name
     {ok, Pid2} = nostr_client_key:start([{name, <<"test">>}]),
 
@@ -80,8 +89,7 @@ simple(_Config) ->
 
     % cleanup
     gen_server:stop(Pid),
-    gen_server:stop(Pid2).
-    
+    gen_server:stop(Pid2).    
 
 %%--------------------------------------------------------------------
 %% @doc internal. Modify the home directory with a random one.
