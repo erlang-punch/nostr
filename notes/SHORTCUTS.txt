@@ -124,4 +124,56 @@ See you for the next ones ;)
   ! tests should be added to ensure its working correctly
   ! need more documentation
 
-== 2023-04-XX: shortcut_23/10
+== 2023-04-18: shortcut_23/10
+
+Hey everyone! Another shortcut tonight. I will try to continue
+upgrading and cleaning up nostr_client_key module. Lot of todo
+to fix and I think it will be okay. Let's do it!
+
+ + added nostr_client_key test for sync/1
+ + added nostr_client_key test for reload/1
+ + added nostr_client_key process into nostr_client_sup tree
+ + added pg support for nostr_client_key
+ + fixed few typo in the code
+ ! ensure nostr_client_key is corrected started
+ ! cleanup the way init arguments are checked
+ ! add documentation (again)
+
+== 2023-04-18: shortcut_23/11
+
+ + modified the record datastructure for nostr_client_key
+   by adding the host of the connected server
+ + created nostr_client:disconnect/1 function
+ + create nostr_client_key:send_metadata/1 function to
+   send the metadata directly to the connected server.
+ ! an interface to send direct message to a connection is
+   required, like nostr_client:send/X.
+ ! nostr_client module documentation is missing
+ ! nostr_client is not tested, need to add integration test
+ ! the process identifiers are not good, we should use the
+   name of the module and not create an atom like 'connection'.
+
+== 2023-04-18: shortcut_23/12
+
+I think it will be the last one. I will fix the bugs, cleanup
+my mess and will upload all the videos on youtube ;)
+
+ + tested nostr_client_key:send_metadata/1 function
+ + created nostr_client_key:generate_metadata_event/1 to
+   generate a set_metadata event based on the server state
+ + create nostr_client:send/3 function to send a message to
+   connected and active server
+ + added few checks and error logging
+ + updated the documentation (just a bit)
+ + added notes and todos
+ ! data contained in nostr_client_key should not be printed
+   this module contains highly private data.
+ ! a way more "conventional" way is needed to write the
+   documentation. needs to define that someday.
+
+Okay, 2minutes remaining. I think nostr_client_key module is
+practically done. A big part of the things I am doing is related
+to the integration of this module/process in the project. More
+tests are needed though, and the way the messages are logged
+is not good enough. Anyway, I will continue that during the next
+shortcut session!

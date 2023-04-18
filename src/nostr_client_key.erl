@@ -65,13 +65,15 @@
 %%% BEAM. When metadata changes when encrypted, exported data MUST BE
 %%% encrypted as well.
 %%%
-%%% @todo add process group support
-%%% @todo instead of converting raw Erlang data into base64, using 
+%%% @todo instead of converting raw Erlang data into base64, using
 %%% an encrypted DETS could be a good solution. Another solution is
 %%% to use functions present in `crypto' and `public_key' modules.
 %%% @todo creates a way to generate automatically the `set_metadata'
 %%% event as an export to a server
 %%% @todo add more specifications.
+%%% @todo add debugging function.
+%%% @todo add error and warning logging.
+%%% @todo add integration test for send_metadata/1
 %%%
 %%% @end
 %%%===================================================================
@@ -83,13 +85,14 @@
 -export([public_key/1, private_key/1]).
 -export([export_metadata/1]).
 -export([sync/1, reload/1]).
--export([set_metadata/3, get_metadata/2]).
+-export([set_metadata/3, get_metadata/2, send_metadata/1]).
 -export([init/1, terminate/2]).
 -export([handle_cast/2, handle_call/3, handle_info/2]).
 -include_lib("kernel/include/logger.hrl").
 -include_lib("kernel/include/file.hrl").
 -include("nostrlib.hrl").
--record(state, { store_path = undefined :: binary()
+-record(state, { host = undefined :: binary()
+               , store_path = undefined :: binary()
                , name :: undefined | binary()
                , private_key_path :: undefined | binary()
                , private_key :: undefined | binary()
@@ -100,7 +103,6 @@
 -define(DEFAULT_DIRECTORY_NAME, <<".nostr">>).
 -define(DEFAULT_KEY_FILENAME, <<"id_secp256k1">>).
 -define(DEFAULT_DIRECTORY_MODE, 16832).
-% @todo change DEFAULT_FILE_MODE to 0600 
 -define(DEFAULT_FILE_MODE, 33152).
 
 %%--------------------------------------------------------------------
@@ -163,12 +165,15 @@ stop(Pid) ->
       Return :: {ok, #state{}}.
 init(Args) ->
     State = #state{},
+    % @todo clean the init argument parts.
     Name = proplists:get_value(name, Args, undefined),
-    init_name(Name, State).
+    Host = proplists:get_value(host, Args, undefined),
+    pg:join(client, {Host, ?MODULE}, self()),
+    init_name(Name, State#state{ host = Host }).
 
 %%--------------------------------------------------------------------
 %% @hidden
-%% @doc internal. 
+%% @doc internal.
 %%
 %% `init_name/2' function check if the name given is valid or not.
 %%
@@ -177,7 +182,7 @@ init(Args) ->
 init_name(undefined, State) ->
     ?LOG_DEBUG("~p", [{?MODULE, self(), init_name, undefined, State}]),
     {stop, [{message, "name undefined"}]};
-init_name(Name, State) 
+init_name(Name, State)
   when is_binary(Name)->
     ?LOG_DEBUG("~p", [{?MODULE, self(), init_name, Name, State}]),
     NewState = State#state{ name = Name },
@@ -188,7 +193,7 @@ init_name(Name, State) ->
 
 %%--------------------------------------------------------------------
 %% @hidden
-%% @doc internal. 
+%% @doc internal.
 %%
 %% `init_path/1' function will modify the state to configure the valid
 %% store path.
@@ -201,7 +206,7 @@ init_path(#state{ name = Name } = State) ->
         {ok, StoreDir} ->
             StorePath = filename:join(StoreDir, Name),
             NewState = State#state{ store_path = StorePath
-                                  , name = Name 
+                                  , name = Name
                                   },
             init_directory_check(NewState);
         {error, Reason} = Error->
@@ -211,7 +216,7 @@ init_path(#state{ name = Name } = State) ->
 
 %%--------------------------------------------------------------------
 %% @hidden
-%% @doc internal. 
+%% @doc internal.
 %%
 %% `init_directory_check/1' checks ONLY if the directory exists or
 %% not.
@@ -230,7 +235,7 @@ init_directory_check(#state{ store_path = StorePath } = State) ->
 
 %%--------------------------------------------------------------------
 %% @hidden
-%% @doc internal. 
+%% @doc internal.
 %%
 %% `init_directory_create/1' creates store directory.
 %%
@@ -240,13 +245,13 @@ init_directory_create(#state{ store_path = StorePath } = State) ->
     case file:make_dir(StorePath) of
         ok ->
             init_directory_mode(State);
-        Error -> 
+        Error ->
             {stop, Error}
     end.
 
 %%--------------------------------------------------------------------
 %% @hidden
-%% @doc internal. 
+%% @doc internal.
 %%
 %% `init_directory_mode/1' ensures store directory was created with
 %% the correct mode, if not, it will fix it.
@@ -256,9 +261,9 @@ init_directory_create(#state{ store_path = StorePath } = State) ->
 init_directory_mode(#state{ store_path = StorePath } = State) ->
     {ok, #file_info{ mode = Mode }} = file:read_file_info(StorePath),
     case Mode of
-        ?DEFAULT_DIRECTORY_MODE -> 
+        ?DEFAULT_DIRECTORY_MODE ->
             init_private_key(State);
-        _ when is_integer(Mode) -> 
+        _ when is_integer(Mode) ->
             ?LOG_WARNING("Wrong mode for ~p. correct it.",[StorePath]),
             % @todo check if mode was correctly configured
             file:change_mode(StorePath, ?DEFAULT_DIRECTORY_MODE),
@@ -280,9 +285,9 @@ init_private_key(#state{ store_path = StorePath } = State) ->
     KeyPath = filename:join(StorePath, ?DEFAULT_KEY_FILENAME),
     NewState = State#state{ private_key_path = KeyPath },
     case filelib:is_regular(KeyPath) of
-        true -> 
+        true ->
             init_private_key_load(NewState);
-        false -> 
+        false ->
             init_private_key_generate(NewState)
     end.
 
@@ -339,8 +344,8 @@ terminate(_, _State) ->
 %% @hidden
 %% @doc internal.
 %%
-%% @todo create the revocation process, if a new key is generated 
-%%       over a new one, it should be stored somewhere and not 
+%% @todo create the revocation process, if a new key is generated
+%%       over a new one, it should be stored somewhere and not
 %%       reused.
 %% @end
 %%--------------------------------------------------------------------
@@ -357,14 +362,28 @@ terminate(_, _State) ->
 %%                           , public_key = PublicKey
 %%                           },
 %%     {noreply, NewState};
+handle_cast({send, metadata} = Message, #state{ host = Host } = State) ->
+    case generate_metadata_event(State) of
+        {ok, Event} ->
+            % @todo a check is required here
+            nostr_client:send(Host, Event, []),
+            {noreply, State};
+        {error, Error} ->
+            ?LOG_ERROR("~p", [{?MODULE, handle_cast, Message, Error}]),
+            {noreply, State}
+    end;
 handle_cast(sync, State) ->
     % @todo fix this part of the code, we should probably return
     %       an error when something goes wrong.
     case store_private_key(State) of
-        {ok, NewState} -> {noreply, NewState};
-        {error, NewState} -> {noreply, NewState}
+        {ok, NewState} -> 
+            {noreply, NewState};
+        {error, NewState} -> 
+            ?LOG_ERROR("~p", [{?MODULE, handle_cast, sync, error}]),
+            {noreply, NewState}
     end;
 handle_cast(reload, State) ->
+    % @todo need a check here.
     {ok, NewState} = load_private_key(State),
     {noreply, NewState};
 handle_cast({set, metadata, name, Value}, #state{ metadata = Metadata } = State)
@@ -397,20 +416,13 @@ handle_cast(_Message, State) ->
       Return :: {reply, ReplyExport, State},
       ReplyExport :: {ok, PrivateKey},
       PrivateKey :: binary().
-handle_call({export, metadata}, _From, #state{ metadata = Metadata
-                                             , private_key = PrivateKey
-                                             , public_key = PublicKey 
-                                             } = State) ->
-    Event = #event{ kind = set_metadata
-                  , content = thoas:encode(Metadata)
-                  , public_key = PublicKey
-                  },
-    Opts = [{private_key, PrivateKey}
-           ,{as_record, true}
-           ],
-    case nostrlib:encode(Event, Opts) of
-        {ok, _} = Result -> {reply, Result, State};
-        {error, _} = Error -> {reply, Error, State}
+handle_call({export, metadata} = Message, _From, State) ->
+    case generate_metadata_event(State) of
+        {ok, _} = Result ->
+            {reply, Result, State};
+        {error, _} = Error ->
+            ?LOG_ERROR("~p", [{?MODULE, handle_call, Message, Error}]),
+            {reply, Error, State}
     end;
 handle_call({get, metadata, name}, _From, #state{ metadata = Metadata } = State) ->
     {reply, {ok, maps:get(<<"name">>, Metadata, undefined)}, State};
@@ -508,12 +520,29 @@ load_private_key(#state{ private_key_path = PrivateKeyPath} = State) ->
 %% @end
 %%--------------------------------------------------------------------
 binary_to_term_maybe(Binary) ->
-    try 
+    try
         Term = binary_to_term(Binary),
         {ok, Term}
     catch
         _:_ -> {error, Binary}
     end.
+
+%%--------------------------------------------------------------------
+%% @hidden
+%% @doc internal.
+%% @end
+%%--------------------------------------------------------------------
+generate_metadata_event(#state{ private_key = PrivateKey
+                              , public_key = PublicKey
+                              , metadata = Metadata }) ->
+    Event = #event{ kind = set_metadata
+                  , content = thoas:encode(Metadata)
+                  , public_key = PublicKey
+                  },
+    Opts = [{private_key, PrivateKey}
+           ,{as_record, true}
+           ],
+    nostrlib:encode(Event, Opts).
 
 %%--------------------------------------------------------------------
 %% @doc (API) `private_key/1' returns the private key stored in the
@@ -547,10 +576,10 @@ public_key(Pid) ->
 %%--------------------------------------------------------------------
 -spec set_metadata(Pid, Key, Value) -> Return when
       Pid :: pid(),
-      Key :: name | about | picture,      
+      Key :: name | about | picture,
       Value :: binary(),
       Return :: ok.
-set_metadata(Pid, Key, <<Value/binary>>) 
+set_metadata(Pid, Key, <<Value/binary>>)
   when Key =:= name orelse Key =:= about orelse Key =:= picture ->
     gen_server:cast(Pid, {set, metadata, Key, Value}).
 
@@ -561,7 +590,7 @@ set_metadata(Pid, Key, <<Value/binary>>)
 %%--------------------------------------------------------------------
 -spec get_metadata(Pid, Key) -> Return when
       Pid :: pid(),
-      Key :: name | about | picture,      
+      Key :: name | about | picture,
       Return :: {ok, undefined | binary()}.
 get_metadata(Pid, Key) when is_atom(Key) ->
     gen_server:call(Pid, {get, metadata, Key}).
@@ -600,3 +629,13 @@ sync(Pid) ->
       Return :: ok.
 reload(Pid) ->
     gen_server:cast(Pid, reload).
+
+%%--------------------------------------------------------------------
+%% @doc (API) `send_metadata/1' notifies the connected server.
+%% @end
+%%--------------------------------------------------------------------
+-spec send_metadata(Pid) -> Return when
+      Pid :: pid(),
+      Return :: ok.
+send_metadata(Pid) ->
+    gen_server:cast(Pid, {send, metadata}).

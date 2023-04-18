@@ -22,6 +22,7 @@
 -export([start_subscription_sup/2, spec_subscription_sup/1]).
 -export([start_connection_sup/2, spec_connection_sup/1]).
 -export([start_contacts/2, spec_contacts/1]).
+-export([start_key/2, spec_key/1]).
 -include("nostrlib.hrl").
 
 %%--------------------------------------------------------------------
@@ -58,6 +59,7 @@ children(Args) ->
     , spec_subscription_sup(Args)
     , spec_connection_sup(Args)
     , spec_contacts(Args)
+    , spec_key(Args)
     ].
 
 %%--------------------------------------------------------------------
@@ -191,3 +193,31 @@ spec_contacts(Args) ->
       Return :: supervisor:startchild_ret().
 start_contacts(Pid, Args) ->
     supervisor:start_child(Pid, spec_contacts(Args)).
+
+%%--------------------------------------------------------------------
+%% @doc `spec_key/1' returns supervision child specification for
+%% `nostr_client_key'.
+%%
+%% @end
+%%--------------------------------------------------------------------
+-spec spec_key(Args) -> Return when
+      Args :: proplists:proplists(),
+      Return :: supervisor:child_spec().
+spec_key(Args) ->
+    #{ id => nostr_client_key
+     , start => {nostr_client_key, start_link, [Args]}
+     , type => worker
+     }.
+
+%%--------------------------------------------------------------------
+%% @doc `start_key/2' starts a new `nostr_client_key' child.
+%%
+%% @see nostr_client_key/1
+%% @end
+%%--------------------------------------------------------------------
+-spec start_key(Pid, Args) -> Return when
+      Pid :: supervisor:sup_ref(),
+      Args :: proplists:proplists(),
+      Return :: supervisor:startchild_ret().
+start_key(Pid, Args) ->
+    supervisor:start_child(Pid, spec_key(Args)).

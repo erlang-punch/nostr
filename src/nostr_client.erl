@@ -26,20 +26,25 @@
 %%% % send and event
 %%% Opts = [{private_key, PrivateKey}].
 %%% ok = nostr_client:event(Host, text_note, <<"hello">>, Opts).
+%%%
+%%% % disconnect the client
+%%% ok = nostr_client:disconnect(Host).
 %%% '''
 %%%
 %%% @todo replace host by another ID.
-%%% @todo create a disconnect function
-%%% @todo improve the options to pass to other function
-%%% @todo remove debug support in parameters
+%%% @todo improve the options to pass to other function.
+%%% @todo remove debug support in parameters.
+%%% @todo add integration test (connection to a local server).
 %%% @end
 %%%===================================================================
 -module(nostr_client).
 -export([connect/1, connect/2]).
+-export([disconnect/1]).
 -export([event/4]).
 -export([request/2, request/3]).
 -export([close/2, close/3]).
 -export([get_process/2]).
+-export([send/3]).
 % -export([add_contact/2, add_contact/3, del_contact/2]).
 -include_lib("eunit/include/eunit.hrl").
 -include_lib("kernel/include/logger.hrl").
@@ -81,6 +86,18 @@ connect(Host, Options) ->
     nostr_manager_client_sup:start_client_sup([{host, Host}] ++ Options).
 
 %%--------------------------------------------------------------------
+%% @doc `disconnect/1' disconnects a client connected to the specific
+%% host.
+%% @end
+%%--------------------------------------------------------------------
+-spec disconnect(Host) -> Return when
+      Host :: string(),
+      Return :: ok.
+disconnect(Host) ->
+    supervisor:terminate_child(nostr_manager_client_sup, {nostr_client_sup, Host}),
+    supervisor:delete_child(nostr_manager_client_sup, {nostr_client_sup, Host}).
+
+%%--------------------------------------------------------------------
 %% @doc `event/4' function send an event to an active connection.
 %% @end
 %%--------------------------------------------------------------------
@@ -91,6 +108,8 @@ connect(Host, Options) ->
       Opts :: proplists:proplists(),
       Return :: ok.
 
+% @todo set_metadata event must be modified, and use nostr_client_key
+%       export instead.
 event(Host, set_metadata, Content, Opts)
   when is_map(Content) ->
     case get_process(Host, connection) of
@@ -218,4 +237,24 @@ get_process(Host, Identifier) ->
         [] -> {error, [{host, Host}, {connection, not_connected}]};
         [Process] -> {ok, Process};
         [Process|_] -> {ok, Process}
+    end.
+
+%%--------------------------------------------------------------------
+%% @doc `send/3' send a message to an active and connected server.
+%% @end
+%%--------------------------------------------------------------------
+-spec send(Host, Event, Opts) -> Return when
+      Host :: string(),
+      Event :: #event{},
+      Opts :: proplists:proplists(),
+      Return :: ok.
+       
+send(Host, #event{} = Event, Opts) ->
+    % @todo need a check there.
+    {ok, Pid} = get_process(Host, connection),
+    case nostrlib:encode(Event, Opts) of
+        {ok, EncodedEvent} -> 
+            nostr_client_connection:send_raw(Pid, EncodedEvent);
+        {error, _} = Error -> 
+            Error
     end.
