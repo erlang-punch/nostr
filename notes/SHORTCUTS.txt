@@ -177,3 +177,40 @@ to the integration of this module/process in the project. More
 tests are needed though, and the way the messages are logged
 is not good enough. Anyway, I will continue that during the next
 shortcut session!
+
+== 2023-04-25: Shortcut_23/13
+
+Hi everyone! Shorcut 23/13 today. So, I will review a little bit what
+I did last week on nostr_client_key module and try to find something
+to do. Let's go!
+
+ + synchronize keys after module nostr_client_key terminates.
+ + added logging function in nostr_client_key
+ + added a way to check the file mode for the private key
+ ! wrong timer used, the pomodoro is a bit longer than usual
+
+== 2023-04-25: Shortcut_23/14
+
+ + create nostr client key store notes.
+ + cleanup nostr client contacts module
+ + add more documentation on nostr client contacts module
+ - commented nostr_client_contacts:import/2 function.
+ ? lot of questions to answer...
+
+== 2023-04-25: Shortcut_23/15
+
+Prepare nip/05 (see
+https://github.com/nostr-protocol/nips/blob/master/05.md)
+
+ + added check_nip05/1 function in nostr_client_key module
+   to check the value of the identifier used. This element
+   will be stored in the set_metadata event. That's a
+   draft.
+ ! creates the check function for the nip05 localpart
+ ! creates the check function for the nip05 domain part
+ ! creates test and documentation on this part of the code
+ ? an external process should be in charge to fetch the
+   result from the remote server and validate it.
+
+Anyway! That was the last shortcut for tonight. We will continue to
+work on that during the next days. See you! :)

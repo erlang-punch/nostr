@@ -65,16 +65,18 @@
 %%% BEAM. When metadata changes when encrypted, exported data MUST BE
 %%% encrypted as well.
 %%%
-%%% @todo instead of converting raw Erlang data into base64, using
-%%% an encrypted DETS could be a good solution. Another solution is
-%%% to use functions present in `crypto' and `public_key' modules.
+%%% @todo instead of converting raw Erlang data into base64, using an
+%%%       encrypted DETS could be a good solution. Another solution is
+%%%       to use functions present in `crypto' and `public_key'
+%%%       modules.
 %%% @todo creates a way to generate automatically the `set_metadata'
-%%% event as an export to a server
+%%%       event as an export to a server
 %%% @todo add more specifications.
 %%% @todo add debugging function.
 %%% @todo add error and warning logging.
 %%% @todo add integration test for send_metadata/1
-%%%
+%%% @todo create a function to extract the information based on the
+%%%       name of the user/profile instead of using the process id.
 %%% @end
 %%%===================================================================
 -module(nostr_client_key).
@@ -88,6 +90,8 @@
 -export([set_metadata/3, get_metadata/2, send_metadata/1]).
 -export([init/1, terminate/2]).
 -export([handle_cast/2, handle_call/3, handle_info/2]).
+% @todo to remove check_nip05
+-export([check_nip05/1]).
 -include_lib("kernel/include/logger.hrl").
 -include_lib("kernel/include/file.hrl").
 -include("nostrlib.hrl").
@@ -227,9 +231,11 @@ init_directory_check(#state{ store_path = StorePath } = State) ->
     case filelib:ensure_path(StorePath) of
         ok ->
             init_directory_mode(State);
-        {error, eacces} ->
+        {error, eacces} = M ->
+            ?LOG_ERROR("~p",[{?MODULE, self(), init_directory_check, M}]),
             init_directory_create(State);
-        {error, Error} ->
+        {error, Error} = M ->
+            ?LOG_ERROR("~p",[{?MODULE, self(), init_directory_check, M}]),
             {stop, Error}
     end.
 
@@ -246,6 +252,7 @@ init_directory_create(#state{ store_path = StorePath } = State) ->
         ok ->
             init_directory_mode(State);
         Error ->
+            ?LOG_ERROR("~p",[{?MODULE, self(), init_directory_create, Error}]),
             {stop, Error}
     end.
 
@@ -264,8 +271,6 @@ init_directory_mode(#state{ store_path = StorePath } = State) ->
         ?DEFAULT_DIRECTORY_MODE ->
             init_private_key(State);
         _ when is_integer(Mode) ->
-            ?LOG_WARNING("Wrong mode for ~p. correct it.",[StorePath]),
-            % @todo check if mode was correctly configured
             file:change_mode(StorePath, ?DEFAULT_DIRECTORY_MODE),
             init_private_key(State);
         Elsewise ->
@@ -329,15 +334,23 @@ init_private_key_load(State) ->
 %%--------------------------------------------------------------------
 %% @hidden
 %% @doc internal.
+%%
+%% When done, the process should synchronize the content of its state
+%% directly on the file system.
+%%
+%% If a problem or something bad happens, the process MUST alert the
+%% user
+%%
+%% @todo an error was raised somewhere, synchronize and check if
+%%       everything is fine.
 %% @end
 %%--------------------------------------------------------------------
 -spec terminate(any(), any()) -> ok.
-terminate(normal, _State) ->
-    % @todo synchronize the file on the file system
+terminate(normal, State) ->
+    {ok, _} = store_private_key(State),
     ok;
-terminate(_, _State) ->
-    % @todo an error was raised somewhere, synchronize and check if
-    % everything is fine.
+terminate(Reason, _State) ->
+    ?LOG_ERROR("~p",[{?MODULE, self(), terminate, Reason}]),
     ok.
 
 %%--------------------------------------------------------------------
@@ -369,7 +382,7 @@ handle_cast({send, metadata} = Message, #state{ host = Host } = State) ->
             nostr_client:send(Host, Event, []),
             {noreply, State};
         {error, Error} ->
-            ?LOG_ERROR("~p", [{?MODULE, handle_cast, Message, Error}]),
+            ?LOG_ERROR("~p", [{?MODULE, self(), handle_cast, Message, Error}]),
             {noreply, State}
     end;
 handle_cast(sync, State) ->
@@ -377,31 +390,49 @@ handle_cast(sync, State) ->
     %       an error when something goes wrong.
     case store_private_key(State) of
         {ok, NewState} -> 
+            ?LOG_DEBUG("~p", [{?MODULE, self(), handle_cast, sync, ok}]),
             {noreply, NewState};
         {error, NewState} -> 
-            ?LOG_ERROR("~p", [{?MODULE, handle_cast, sync, error}]),
+            ?LOG_ERROR("~p", [{?MODULE, self(), handle_cast, sync, error}]),
             {noreply, NewState}
     end;
 handle_cast(reload, State) ->
-    % @todo need a check here.
-    {ok, NewState} = load_private_key(State),
-    {noreply, NewState};
-handle_cast({set, metadata, name, Value}, #state{ metadata = Metadata } = State)
+    case load_private_key(State) of
+        {ok, NewState} ->
+            ?LOG_DEBUG("~p", [{?MODULE, self(), handle_cast, reload, ok}]),
+            {noreply, NewState};
+        Elsewise ->
+            % @todo this part of the code should probably just die if
+            %       something goes wrong.
+            ?LOG_ERROR("~p", [{?MODULE, self(), handle_cast, reload, error, Elsewise}]),
+            {noreply, State}
+    end;
+handle_cast({set, metadata, name, Value} = M, #state{ metadata = Metadata } = State)
   when is_binary(Value) ->
+    ?LOG_DEBUG("~p", [{?MODULE, self(), handle_cast, M}]),
     NewMetadata = maps:put(<<"name">>, Value, Metadata),
     NewState = State#state{metadata = NewMetadata},
     {noreply, NewState};
-handle_cast({set, metadata, about, Value}, #state{ metadata = Metadata } = State)
+handle_cast({set, metadata, about, Value} = M, #state{ metadata = Metadata } = State)
   when is_binary(Value) ->
+    ?LOG_DEBUG("~p", [{?MODULE, self(), handle_cast, M}]),
     NewMetadata = maps:put(<<"about">>, Value, Metadata),
     NewState = State#state{metadata = NewMetadata},
     {noreply, NewState};
-handle_cast({set, metadata, picture, Value}, #state{ metadata = Metadata } = State)
+handle_cast({set, metadata, picture, Value} = M, #state{ metadata = Metadata } = State)
   when is_binary(Value) ->
+    ?LOG_DEBUG("~p", [{?MODULE, self(), handle_cast, M}]),
     NewMetadata = maps:put(<<"picture">>, Value, Metadata),
     NewState = State#state{metadata = NewMetadata},
     {noreply, NewState};
-handle_cast(_Message, State) ->
+handle_cast({set, metadata, nip05, Value} = M, #state{ metadata = Metadata } = State)
+  when is_binary(Value) ->
+    ?LOG_DEBUG("~p", [{?MODULE, self(), handle_cast, M}]),
+    NewMetadata = maps:put(<<"nip05">>, Value, Metadata),
+    NewState = State#state{metadata = NewMetadata},
+    {noreply, NewState};    
+handle_cast(Message, State) ->
+    ?LOG_WARNING("~p", [{?MODULE, self(), handle_cast, Message}]),
     {noreply, State}.
 
 %%--------------------------------------------------------------------
@@ -419,22 +450,32 @@ handle_cast(_Message, State) ->
 handle_call({export, metadata} = Message, _From, State) ->
     case generate_metadata_event(State) of
         {ok, _} = Result ->
+            ?LOG_DEBUG("~p", [{?MODULE, self(), handle_call, Message, ok}]),
             {reply, Result, State};
         {error, _} = Error ->
-            ?LOG_ERROR("~p", [{?MODULE, handle_call, Message, Error}]),
+            ?LOG_ERROR("~p", [{?MODULE, self(), handle_call, Message, Error}]),
             {reply, Error, State}
     end;
-handle_call({get, metadata, name}, _From, #state{ metadata = Metadata } = State) ->
+handle_call({get, metadata, name} = M, _From, #state{ metadata = Metadata } = State) ->
+    ?LOG_DEBUG("~p", [{?MODULE, self(), handle_call, M}]),
     {reply, {ok, maps:get(<<"name">>, Metadata, undefined)}, State};
-handle_call({get, metadata, about}, _From, #state{ metadata = Metadata } = State) ->
+handle_call({get, metadata, about} = M, _From, #state{ metadata = Metadata } = State) ->
+    ?LOG_DEBUG("~p", [{?MODULE, self(), handle_call, M}]),
     {reply, {ok, maps:get(<<"about">>, Metadata, undefined)}, State};
-handle_call({get, metadata, picture}, _From, #state{ metadata = Metadata } = State) ->
+handle_call({get, metadata, picture} = M, _From, #state{ metadata = Metadata } = State) ->
+    ?LOG_DEBUG("~p", [{?MODULE, self(), handle_call, M}]),
     {reply, {ok, maps:get(<<"picture">>, Metadata, undefined)}, State};
-handle_call({get, private_key}, _From, #state{ private_key = PrivateKey} = State) ->
+handle_call({get, metadata, nip05} = M, _From, #state{ metadata = Metadata } = State) ->
+    ?LOG_DEBUG("~p", [{?MODULE, self(), handle_call, M}]),
+    {reply, {ok, maps:get(<<"nip05">>, Metadata, undefined)}, State};
+handle_call({get, private_key} = M, _From, #state{ private_key = PrivateKey} = State) ->
+    ?LOG_DEBUG("~p", [{?MODULE, self(), handle_call, M}]),
     {reply, {ok, PrivateKey}, State};
-handle_call({get, public_key}, _From, #state{ public_key = PublicKey} = State) ->
+handle_call({get, public_key} = M, _From, #state{ public_key = PublicKey} = State) ->
+    ?LOG_DEBUG("~p", [{?MODULE, self(), handle_call, M}]),
     {reply, {ok, PublicKey}, State};
-handle_call(_Message, _From, State) ->
+handle_call(Message, From, State) ->
+    ?LOG_WARNING("~p", [{?MODULE, self(), handle_call, Message, From}]),
     {reply, ok, State}.
 
 %%--------------------------------------------------------------------
@@ -446,7 +487,8 @@ handle_call(_Message, _From, State) ->
       Message :: any(),
       State :: #state{},
       Return :: {noreply, State}.
-handle_info(_Message, State) ->
+handle_info(Message, State) ->
+    ?LOG_WARNING("~p", [{?MODULE, self(), handle_info, Message}]),
     {noreply, State}.
 
 %%--------------------------------------------------------------------
@@ -479,13 +521,30 @@ store_private_key(#state{ private_key_path = Path
     Base64 = base64:encode(Encoded),
     case file:write_file(Path, Base64, [read,write]) of
         ok ->
-            % @todo ensure the file is using correct mode
-            file:change_mode(Path, ?DEFAULT_FILE_MODE),
+            check_private_key_mode(State),
             NewState = State#state{ sync = erlang:system_time() },
             {ok, NewState};
         {error, _Reason} = Error ->
             NewState = State#state{ sync = Error },
             {error, NewState}
+    end.
+
+%%--------------------------------------------------------------------
+%% @hidden
+%% @doc internal.
+%% @end
+%%--------------------------------------------------------------------
+check_private_key_mode(#state{ private_key_path = Path }) ->
+    case file:read_file_info(Path) of
+        {ok, #file_info{ mode = ?DEFAULT_FILE_MODE }} ->
+            ok;
+        {ok, #file_info{ mode = _ }} ->
+            ?LOG_WARNING("change file mode for ~p", [Path]),
+            file:change_mode(Path, ?DEFAULT_FILE_MODE),
+            ok;
+        _ ->
+            ?LOG_ERROR("change mode failed for ~p", [Path]),
+            ok
     end.
 
 %%--------------------------------------------------------------------
@@ -545,6 +604,31 @@ generate_metadata_event(#state{ private_key = PrivateKey
     nostrlib:encode(Event, Opts).
 
 %%--------------------------------------------------------------------
+%% @hidden
+%% @doc
+%% @end
+%%--------------------------------------------------------------------
+-spec check_nip05(binary()) -> any().
+check_nip05(Identifier) ->
+    Regex = <<"^(?<localpart>[a-z0-_]+)", 
+              "@", 
+              "(?<domain>[a-zA-Z]+\.[a-zA-Z]+)$">>,
+    RegexOpts = [extended, {capture,all_names,binary}],
+    {ok, MP} = re:compile(Regex),
+    {namelist, Names} = re:inspect(MP, namelist),
+    case re:run(Identifier, Regex, RegexOpts) of
+        {match, Match}->
+            List = lists:zip(Names, Match),
+            {ok, maps:from_list(List)};
+        Result ->
+            {error, Result}
+    end.
+
+% check_nip05_localpart()
+% check_nip05_domain()
+    
+
+%%--------------------------------------------------------------------
 %% @doc (API) `private_key/1' returns the private key stored in the
 %% store.
 %%
@@ -576,11 +660,10 @@ public_key(Pid) ->
 %%--------------------------------------------------------------------
 -spec set_metadata(Pid, Key, Value) -> Return when
       Pid :: pid(),
-      Key :: name | about | picture,
+      Key :: atom(),
       Value :: binary(),
       Return :: ok.
-set_metadata(Pid, Key, <<Value/binary>>)
-  when Key =:= name orelse Key =:= about orelse Key =:= picture ->
+set_metadata(Pid, Key, <<Value/binary>>) ->
     gen_server:cast(Pid, {set, metadata, Key, Value}).
 
 %%--------------------------------------------------------------------
@@ -590,7 +673,7 @@ set_metadata(Pid, Key, <<Value/binary>>)
 %%--------------------------------------------------------------------
 -spec get_metadata(Pid, Key) -> Return when
       Pid :: pid(),
-      Key :: name | about | picture,
+      Key :: atom(),
       Return :: {ok, undefined | binary()}.
 get_metadata(Pid, Key) when is_atom(Key) ->
     gen_server:call(Pid, {get, metadata, Key}).
