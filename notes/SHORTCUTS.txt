@@ -214,3 +214,52 @@ https://github.com/nostr-protocol/nips/blob/master/05.md)
 
 Anyway! That was the last shortcut for tonight. We will continue to
 work on that during the next days. See you! :)
+
+== 2023-05-02: Shortcut_23/16
+
+Continue to implement nip/05 for DNS authentication. Let's go!
+
+ + created a new module called nostrlib_nip05
+ + created nostrlib_05:target/1
+ + created nostrlib_05:url/1
+ + created nostrlib_05:get/1
+ ! need to modify the way we managed the URL and the URI.
+ ! need more documentation and some tests there...
+ ? what kind of data structure should we use there
+
+== 2023-05-02: Shortcut_23/17
+
+ ~ nostrlib_nip05 is now using a gen_statem behavior for many reasons:
+   (1) nip05 will check an external resources and should be isolated
+   from the rest of the application (2) it's probably a one time event
+   to ensure the user exist and is valid (3) when done, we should call
+   it only and demand. This is the definition of finite state machine,
+   we are waiting for an answer and will return it to another process,
+   in our case, probably nostr_client_key (or another one).
+ ! continue to implement nostrlib_nip05, this currently a draft.
+
+== 2023-05-02: Shortcut_23/18
+
+ + created states functions to deal with the data from the server
+   hosting the information about the identifier, it needs to be
+   improved but the idea is to split the actions in different isolated
+   states.
+ ! add certificate support when gun connects to a remote server
+ ! creates a local test server to check if the process is correctly
+   working
+ ! add tests
+ ! improvate the gen_statem state, it should contain:
+   (1) connection attempts
+   (2) if a failure, the reason
+   (3) the state of the identifier (valid or not, the key id and so on...)
+ ? How to deal with the errors there? Should we catch them?
+ ? the done state should probably offers a way to switch in the wait
+   mode in case of failure.
+
+I think this shortcut session is over for tonight! unfortunately,
+working on a draft is not really great... That's also why I wanted to
+do these small session. Designing something is hard, and I did not
+even really tested this application in real life! Anyway, see you for
+the next shortcuts, have a great week! :)
+
+

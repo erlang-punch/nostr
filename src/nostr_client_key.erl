@@ -90,8 +90,6 @@
 -export([set_metadata/3, get_metadata/2, send_metadata/1]).
 -export([init/1, terminate/2]).
 -export([handle_cast/2, handle_call/3, handle_info/2]).
-% @todo to remove check_nip05
--export([check_nip05/1]).
 -include_lib("kernel/include/logger.hrl").
 -include_lib("kernel/include/file.hrl").
 -include("nostrlib.hrl").
@@ -602,31 +600,6 @@ generate_metadata_event(#state{ private_key = PrivateKey
            ,{as_record, true}
            ],
     nostrlib:encode(Event, Opts).
-
-%%--------------------------------------------------------------------
-%% @hidden
-%% @doc
-%% @end
-%%--------------------------------------------------------------------
--spec check_nip05(binary()) -> any().
-check_nip05(Identifier) ->
-    Regex = <<"^(?<localpart>[a-z0-_]+)", 
-              "@", 
-              "(?<domain>[a-zA-Z]+\.[a-zA-Z]+)$">>,
-    RegexOpts = [extended, {capture,all_names,binary}],
-    {ok, MP} = re:compile(Regex),
-    {namelist, Names} = re:inspect(MP, namelist),
-    case re:run(Identifier, Regex, RegexOpts) of
-        {match, Match}->
-            List = lists:zip(Names, Match),
-            {ok, maps:from_list(List)};
-        Result ->
-            {error, Result}
-    end.
-
-% check_nip05_localpart()
-% check_nip05_domain()
-    
 
 %%--------------------------------------------------------------------
 %% @doc (API) `private_key/1' returns the private key stored in the
