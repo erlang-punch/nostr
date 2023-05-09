@@ -262,4 +262,40 @@ do these small session. Designing something is hard, and I did not
 even really tested this application in real life! Anyway, see you for
 the next shortcuts, have a great week! :)
 
+== 2023-05-09: Shorcut_23/19
 
+Hi everyone! The week was a bit exausting on my side... So, I will try
+to continue the previous implementation of nip/05. First, we will read
+the change during the last session. Okay! Let's go!
+
+ + created check_json/1 function to check json object returned by the
+   server hosting the information about one user
+ + added eunit test support
+ + added more documentation
+ + added some todos.
+ ! require documentation on many functions
+ ! need to check the data stored in names and relays attributes.
+
+== 2023-05-09: Shorcut_23/20
+
+Did some cleanup, in particular in the init function.
+
+ + splitted the init function in small functions to check
+   arguments present in a proplists
+ + added module documentation
+ + added more documentation
+ ! need to rename this module to nostr_client_nip05
+ 
+== 2023-05-09: Shorcut_23/21
+
+This last part was dedicated to test the process... And it does not
+work correctly. Anyway, it will be fixed next time. When creating a
+connection to the remote server with a valid domain and path, nothing
+is returned. It's possibly related to CA validation (to check).
+
+Anyway, see you Friday... :)
+
+ + add logging support
+ + did some tests
+ ~ fixed a bug in the path used to fetch the information
+ ~ fixed few other bugs
