@@ -16,6 +16,7 @@ BY-NC-ND](https://creativecommons.org/licenses/by-nc-nd/4.0/)**.
 | 2023-02-25 | [Implementing nostr Client in Erlang](0003-implementing-nostr-client-in-erlang) | Mathieu Kerjouan | R25
 | 2023-02-10 | [From Erlang to nostr](0002-from-erlang-to-nostr) | Mathieu Kerjouan | R25
 | 2023-02-10 | [Create Github Actions Workflow](0001-create-github-actions-workflow) | Mathieu Kerjouan | R25
+| 2023-08-11 | [Implementing Bech32 and Segwit Address in Pure Erlang](0009-implementing-bech32-and-segwit-address-in-pure-erlang) | Mathieu Kerjouan | R25
 
 The codes presented in these articles are usually tested under OpenBSD
 and ParrotLinux (Debian-like distribution) with the latest major
