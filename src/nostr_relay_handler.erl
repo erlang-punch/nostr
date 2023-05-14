@@ -1,4 +1,5 @@
 %%%===================================================================
+%%% @author Mathieu Kerjouan <contact at erlang-punch.com>
 %%% @doc DRAFT
 %%%
 %%% ```
@@ -9,7 +10,6 @@
 %%% '''
 %%%
 %%% @end
-%%% @author Mathieu Kerjouan <contact at erlang-punch.com>
 %%%===================================================================
 -module(nostr_relay_handler).
 -export([init/2, websocket_init/1, websocket_handle/2, terminate/3]).

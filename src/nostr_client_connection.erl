@@ -1,4 +1,5 @@
 %%%===================================================================
+%%% @author Mathieu Kerjouan <contact at erlang-punch.com>
 %%% @doc `nostr_client_connection' module is responsible to maintain
 %%% the HTTP and Websocket connections alive. This module will is
 %%% currently using `gen_server' behavior but will be migrated to
@@ -28,7 +29,6 @@
 %%% @todo convert this module from `gen_server' to `gen_statem'
 %%% @todo create more examples
 %%% @end
-%%% @author Mathieu Kerjouan <contact at erlang-punch.com>
 %%%===================================================================
 -module(nostr_client_connection).
 -vsn("0.0.1").
@@ -235,7 +235,7 @@ init(Args) ->
     Transport = proplists:get_value(transport, Args, tls),
     Path = proplists:get_value(path, Args, "/"),
     WebSocketOptions = proplists:get_value(websocket_opts, Args, []),
-    
+
     case proplists:get_value(tls, Args, true) of
         true ->
             CACerts = proplists:get_value(cacerts, Args, public_key:cacerts_get()),

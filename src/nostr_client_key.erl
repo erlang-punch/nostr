@@ -387,10 +387,10 @@ handle_cast(sync, State) ->
     % @todo fix this part of the code, we should probably return
     %       an error when something goes wrong.
     case store_private_key(State) of
-        {ok, NewState} -> 
+        {ok, NewState} ->
             ?LOG_DEBUG("~p", [{?MODULE, self(), handle_cast, sync, ok}]),
             {noreply, NewState};
-        {error, NewState} -> 
+        {error, NewState} ->
             ?LOG_ERROR("~p", [{?MODULE, self(), handle_cast, sync, error}]),
             {noreply, NewState}
     end;
@@ -428,7 +428,7 @@ handle_cast({set, metadata, nip05, Value} = M, #state{ metadata = Metadata } = S
     ?LOG_DEBUG("~p", [{?MODULE, self(), handle_cast, M}]),
     NewMetadata = maps:put(<<"nip05">>, Value, Metadata),
     NewState = State#state{metadata = NewMetadata},
-    {noreply, NewState};    
+    {noreply, NewState};
 handle_cast(Message, State) ->
     ?LOG_WARNING("~p", [{?MODULE, self(), handle_cast, Message}]),
     {noreply, State}.

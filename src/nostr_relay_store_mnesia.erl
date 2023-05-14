@@ -1,4 +1,5 @@
 %%%===================================================================
+%%% @author Mathieu Kerjouan <contact at erlang-punch.com>
 %%% @doc handler module to deal with Mnesia database.
 %%%
 %%% Here a bit of documentation to help people to understand/use
@@ -12,7 +13,7 @@
 %%% mnesia:create_table(event, [{attributes, record_info(fields, event)}]).
 %%%
 %%% % create a new event
-%%% {ok, E2} 
+%%% {ok, E2}
 %%%   = nostrlib:encode(#event{content = <<"test">>, kind = text_note},
 %%%      [{private_key, <<1:256>>}, {as_record, true}]).
 %%%
@@ -51,28 +52,28 @@
 %%%              , content = Content
 %%%              , created_at = _
 %%%              , signature = _
-%%%              , kind = _, public_key = _}) 
-%%%      when Prefix =:= binary_part(Id, {0,2}) -> 
-%%%        Content 
+%%%              , kind = _, public_key = _})
+%%%      when Prefix =:= binary_part(Id, {0,2}) ->
+%%%        Content
 %%%    end).
 %%%
 %%% % Pattern Spec to extract the whole content
 %%% % [{#event{id = '$1', public_key = '_', created_at = '_',
-%%% %          kind = '_', tags = '_', content = '$2', signature = '_'},  
+%%% %          kind = '_', tags = '_', content = '$2', signature = '_'},
 %%% %  [{'=:=',{const,<<202,244,196,122,235,105,92,155>>},
 %%% %          {binary_part,'$1',{{0,8}}}
 %%% %   }],
 %%%
 %%% % lambda function to extract a part of an id.
 %%% fun(Prefix) ->
-%%%   mnesia:transaction(fun() -> 
+%%%   mnesia:transaction(fun() ->
 %%%     Event = #event{ id = '$2', content = '$1', created_at = '_'
 %%%                   , signature = '_', kind = '_', public_key = '_'},
 %%%     Guard = [{'=:=',{const, Prefix}
 %%%                    ,{binary_part,'$2',{{0,8}}}
 %%%             }],
 %%%     Select = ['$1'],
-%%%     mnesia:select(event, [{Event, Guard, Select}]) 
+%%%     mnesia:select(event, [{Event, Guard, Select}])
 %%%   end)
 %%% end.
 %%% '''
@@ -144,8 +145,8 @@ terminate(_Args) ->
       Entry :: term(),
       Return :: ok | {ok, any()} | {error, any()}.
 insert(#event{} = Event) ->
-    Fun = fun() -> 
-                  mnesia:write(Event) 
+    Fun = fun() ->
+                  mnesia:write(Event)
           end,
    mnesia:transaction(Fun);
 
@@ -156,7 +157,7 @@ insert(#subscripter{ subscripter_id = #subscripter_id{} } = Subscripter) ->
                   % 1. @TODO check the filters
                   % 2. @TODO create the filter if necessary
                   % 3. then insert the new subscripter
-                  mnesia:write(Subscripter)                      
+                  mnesia:write(Subscripter)
           end,
     mnesia:transaction(Fun).
 
@@ -181,7 +182,7 @@ lookup(#event{} = Event) ->
 %%
 %% @end
 %%--------------------------------------------------------------------
--spec select(Entry, Guards, Result) -> Return when 
+-spec select(Entry, Guards, Result) -> Return when
       Entry :: term(),
       Guards :: [term(), ...],
       Result :: [term(), ...],
@@ -214,4 +215,3 @@ delete(#subscripter{} = Subscripter) ->
                   mnesia:delete_object(Subscripter)
           end,
     mnesia:transaction(Fun).
-

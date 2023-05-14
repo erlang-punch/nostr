@@ -1,5 +1,6 @@
 %%%===================================================================
-%%% @doc 
+%%% @author Mathieu Kerjouan <contact at erlang-punch.com>
+%%% @doc
 %%%
 %%% this module defines a subscription on the relay side. What is a
 %%% subscription in this context? Well, this is a list of process
@@ -10,7 +11,7 @@
 %%% create a new subscription based on a random generated on his
 %%% side. We can't trust him, so, we need to store his id with its
 %%% connection identifier, assuming a client can only have one
-%%% websocket connection. 
+%%% websocket connection.
 %%%
 %%%    requirement: tuple containing a client id with a subscription
 %%%                 id stored somewhere.
@@ -29,7 +30,7 @@
 %%%
 %%%    requirement: create a supervisor to store M subscription
 %%%                 processes.
-%%%   
+%%%
 %%% 4. the selected subscription process will check the content of the
 %%% event based on the list of all subscription/filters available on
 %%% the server. It will return the list of connection.
@@ -64,7 +65,7 @@
 %%% | |        |  (1)        |       |  (2)        |              | |
 %%% |_| client |--[events]-->| relay |--[events]-->| subscription |_|
 %%%   |________|             |_______|             |______________|
-%%%                                                  || 
+%%%                                                  ||
 %%%                                                 _||_ (4)
 %%%  (1) from cowboy handler                        \  /
 %%%  (2) call ?MODULE:forward/1 (public)           __\/____
@@ -120,7 +121,7 @@ start_link(Args) ->
 -spec forward(Event) -> Return when
       Event :: event(),
       Return :: ok.
-          
+
 forward(Event) ->
     case nostr_relay:get_process(?MODULE, []) of
         {ok, Pid} ->
@@ -141,7 +142,7 @@ forward(Pid, #event{} = Event) ->
     gen_server:cast(Pid, Event).
 
 %%--------------------------------------------------------------------
-%% @doc 
+%% @doc
 %% @end
 %%--------------------------------------------------------------------
 -spec init(Args) -> Return when
@@ -166,7 +167,7 @@ terminate(_Reason, _State) ->
     ok.
 
 %%--------------------------------------------------------------------
-%% @doc 
+%% @doc
 %% @end
 %%--------------------------------------------------------------------
 -spec handle_cast(Message, State) -> Return when
@@ -176,9 +177,9 @@ terminate(_Reason, _State) ->
 handle_cast(Message, State) ->
     ?LOG_DEBUG("~p", [{?MODULE, self(), handle_cast, Message, State}]),
     {noreply, State}.
-    
+
 %%--------------------------------------------------------------------
-%% @doc 
+%% @doc
 %% @end
 %%--------------------------------------------------------------------
 -spec handle_call(Message, From, State) -> Return when
@@ -191,7 +192,7 @@ handle_call(Message, From, State) ->
     {reply, Message, State}.
 
 %%--------------------------------------------------------------------
-%% @doc 
+%% @doc
 %% @end
 %%--------------------------------------------------------------------
 -spec handle_info(Message, State) -> Return when
@@ -201,4 +202,3 @@ handle_call(Message, From, State) ->
 handle_info(Message, State) ->
     ?LOG_DEBUG("~p", [{?MODULE, self(), handle_info, Message, State}]),
     {noreply, State}.
-

@@ -79,4 +79,3 @@ spec_relay_subscription(Args) ->
       Return :: supervisor:startchild_ret().
 start_relay_subscription(Pid, Args) ->
     supervisor:start_child(Pid, spec_relay_subscription(Args)).
-

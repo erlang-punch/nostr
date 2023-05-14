@@ -1,4 +1,5 @@
 %%%===================================================================
+%%% @author Mathieu Kerjouan <contact at erlang-punch.com>
 %%% @doc DRAFT: `nostr_client_router' module is in charge of parsing,
 %%% validating, checking and routing the messages coming from
 %%% `nostr_client_connection' process. The goal is to isolate all
@@ -14,15 +15,14 @@
 %%%                            [{as_record, true}, {private_key, <<1:256>>}]).
 %%%
 %%% % send a message to the process
-%%% erlang:spawn(fun() -> gen_server:call(R, {"wss://test.com", EE}, 1000) end), 
+%%% erlang:spawn(fun() -> gen_server:call(R, {"wss://test.com", EE}, 1000) end),
 %%%   % wait 10 millisecond
-%%%   timer:sleep(10), 
+%%%   timer:sleep(10),
 %%%   % send the answer
 %%%   gen_server:cast(R, {"wss://test.com", {ok, {EE#event.id, data}}}).
 %%% '''
 %%%
 %%% @end
-%%% @author Mathieu Kerjouan <contact at erlang-punch.com>
 %%%===================================================================
 -module(nostr_router).
 -vsn("0.0.1").
@@ -87,7 +87,7 @@ handle_call({Relay, #event{ id = <<Id:256/bitstring>> }} = Message, From, #state
     ?LOG_DEBUG("~p", [{self(), ?MODULE, handle_call, Message, From, State}]),
     NewStore = maps:put({Id, Relay}, {From, erlang:monotonic_time()}, Store),
     {noreply, State#state{ store = NewStore }};
-    
+
 handle_call(Message, From, State) ->
     ?LOG_DEBUG("~p", [{self(), ?MODULE, handle_call, Message, From, State}]),
     {reply, ok, State}.

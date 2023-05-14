@@ -1,4 +1,5 @@
 %%%===================================================================
+%%% @author Mathieu Kerjouan <contact at erlang-punch.com>
 %%% @doc `nostr_client_router_sup' monitors the `nostr_client_router'
 %%% pool of processes.
 %%%
@@ -11,7 +12,6 @@
 %%% '''
 %%%
 %%% @end
-%%% @author Mathieu Kerjouan <contact at erlang-punch.com>
 %%%===================================================================
 -module(nostr_client_router_sup).
 -behavior(supervisor).

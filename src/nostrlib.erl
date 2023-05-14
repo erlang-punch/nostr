@@ -1,6 +1,5 @@
 %%%===================================================================
 %%% @author Mathieu Kerjouan <contact at erlang-punch.com>
-%%%
 %%% @doc `nostrlib' contains all functions commonly used by relays and
 %%% clients. This is a low level interface and should not be directly
 %%% used.
@@ -926,7 +925,7 @@ decode_check_signature(Rest, Buffer, Labels) ->
 %% create_id(#event{} = Event) ->
 %%     Serialized = serialize(Event),
 %%     {ok, crypto:hash(sha256, Serialized)};
-create_id(Event) 
+create_id(Event)
   when is_map(Event) ->
     case serialize(Event) of
         {ok, Serial} ->
@@ -1127,13 +1126,13 @@ decode_tags(Tags, _) ->
 serialize(#{ <<"pubkey">> := <<PublicKey/binary>> })
   when byte_size(PublicKey) =/= 64 ->
     {error, [{public_key, PublicKey}]};
-serialize(#{ <<"created_at">> := CreatedAt }) 
+serialize(#{ <<"created_at">> := CreatedAt })
   when not is_integer(CreatedAt) orelse CreatedAt<0 ->
     {error, [{created_at, CreatedAt}]};
-serialize(#{ <<"kind">> := Kind }) 
+serialize(#{ <<"kind">> := Kind })
   when not is_integer(Kind) ->
     {error, [{kind, Kind}]};
-serialize(#{ <<"tags">> := Tags }) 
+serialize(#{ <<"tags">> := Tags })
   when not is_list(Tags) ->
     {error, [{tags, Tags}]};
 serialize(#{ <<"content">> := Content })
@@ -1166,7 +1165,7 @@ serialize_test() ->
     ,?assertEqual({error,[{serialize, <<>>}]}
                  ,serialize(<<>>))
     ].
-    
+
 
 %%--------------------------------------------------------------------
 %% @doc internal function.

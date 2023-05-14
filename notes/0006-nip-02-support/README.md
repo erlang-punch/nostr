@@ -7,7 +7,7 @@ author: Mathieu Kerjouan
 keywords: erlang,otp,nostr,nip/02,contact,petnames
 license: CC BY-NC-ND
 abstract: |
-  
+
 toc: true
 hyperrefoptions:
   - linktoc=all
@@ -38,4 +38,3 @@ functions to deal with the event format and the client part.
 ```
 
 # Conclusion
-

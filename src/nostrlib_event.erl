@@ -1,4 +1,5 @@
 %%%===================================================================
+%%% @author Mathieu Kerjouan <contact at erlang-punch.com>
 %%% @doc
 %%%
 %%% == Examples ==
@@ -7,12 +8,12 @@
 %%% nostrlib_event:create(metadata, #{}
 %%% '''
 %%%
-%%% Here the manual steps to check a message. 
+%%% Here the manual steps to check a message.
 %%%
 %%% ```
 %%% % 1. read the file (or take it from the wild)
 %%% {ok, M} = file:read_file("test/nostrlib_SUITE_data/valid_event_kind1.json").
-%%% 
+%%%
 %%% % 2. decode the json
 %%% {ok, J} = thoas:decode(M).
 %%%

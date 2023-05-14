@@ -1,4 +1,5 @@
 %%%===================================================================
+%%% @author Mathieu Kerjouan <contact at erlang-punch.com>
 %%% @doc `nostr_client_sup' module is the top client process
 %%% supervisor. All its children present in its supervision tree are
 %%% representing a full nostr client.
@@ -11,7 +12,6 @@
 %%% '''
 %%%
 %%% @end
-%%% @author Mathieu Kerjouan <contact at erlang-punch.com>
 %%%===================================================================
 -module(nostr_client_sup).
 -behavior(supervisor).

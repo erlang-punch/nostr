@@ -80,19 +80,19 @@ What kind of messages we need to support there? Well. We need to:
  2. (cast) store the key on the disk
  3. (cast) load the key from the disk (if present)
  4. (call) export it in different formats
-    
+
 The main function created there was the initialization part of
 nostr_client_key.
-    
+
 == 2023-04-04: shortcut_23/06
-    
+
 finalizing the initialization part of the nostr_client_key module
 using gen_server. This shortcut implemented a way to generate,
 initialize, and store a key. More tests are required though.
-    
+
 So, it's over for tonight! 3 shortcuts, one module implemented. It
 looks good :)
-    
+
 See you for the next ones ;)
 
 == 2023-04-16: shortcut_23/07
@@ -285,7 +285,7 @@ Did some cleanup, in particular in the init function.
  + added module documentation
  + added more documentation
  ! need to rename this module to nostr_client_nip05
- 
+
 == 2023-05-09: Shorcut_23/21
 
 This last part was dedicated to test the process... And it does not

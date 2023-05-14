@@ -1,9 +1,9 @@
 %%%===================================================================
+%%% @author Mathieu Kerjouan <contact at erlang-punch.com>
 %%% @doc DRAFT
 %%%
 %%% @todo improve start_relay_listener/2 function
 %%% @end
-%%% @author Mathieu Kerjouan <contact at erlang-punch.com>
 %%%===================================================================
 -module(nostr_relay_sup).
 -behavior(supervisor).
@@ -130,4 +130,3 @@ spec_relay_subscription_sup(Args) ->
       Return :: supervisor:startchild_ret().
 start_relay_subscription_sup(Pid, Args) ->
     supervisor:start_child(Pid, spec_relay_subscription_sup(Args)).
-

@@ -1,4 +1,5 @@
 %%%===================================================================
+%%% @author Mathieu Kerjouan <contact at erlang-punch.com>
 %%% @doc `nostr_client_router' module is in charge of parsing,
 %%% validating, checking and routing the messages coming from
 %%% `nostr_client_connection' process. The goal is to isolate all
@@ -6,7 +7,6 @@
 %%% tag `{ClientId, router}'.
 %%%
 %%% @end
-%%% @author Mathieu Kerjouan <contact at erlang-punch.com>
 %%%===================================================================
 -module(nostr_client_router).
 -vsn("0.0.1").
@@ -113,7 +113,7 @@ handle_cast({connection, Host, Data} = _Message, State) ->
     end,
     {noreply, State};
 
-    
+
 handle_cast({raw, _Data} = Message, State) ->
     ?LOG_DEBUG("old: ~p", [{?MODULE, self(), cast, Message, State}]),
     {noreply, State};

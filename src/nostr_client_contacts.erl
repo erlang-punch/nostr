@@ -1,4 +1,5 @@
 %%%===================================================================
+%%% @author Mathieu Kerjouan <contact at erlang-punch.com>
 %%% @doc DRAFT: `nostr_client_contacts' stores contact list from the
 %%% server, it's an implementation of <a
 %%% href="https://github.com/nostr-protocol/nips/blob/master/02.md">NIP/02</a>.
@@ -64,7 +65,7 @@
 -include("nostrlib.hrl").
 -record(state, { identity = undefined
                , host = undefined
-               , store = undefined 
+               , store = undefined
                }).
 
 %%--------------------------------------------------------------------
@@ -160,7 +161,7 @@ handle_cast({delete, {contact, PublicKey, _, _}} = M, #state{ store= Store} = St
 
 % add a new contact or update an existing one
 handle_cast({add, {contact, <<PublicKey:256/bitstring>>, ContactName, MainRelay}} = M
-           , #state{ store = Store } = State) 
+           , #state{ store = Store } = State)
   when is_binary(ContactName) andalso is_binary(MainRelay) ->
     ?LOG_DEBUG("~p", [{?MODULE, self(), handle_cast, add, M}]),
     ets:insert(Store, {PublicKey, ContactName, MainRelay}),
@@ -347,4 +348,3 @@ export(Pid, Opts) ->
 -spec list(any()) -> ok.
 list(Pid) ->
     gen_server:call(Pid, list).
-

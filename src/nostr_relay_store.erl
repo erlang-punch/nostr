@@ -1,4 +1,5 @@
 %%%===================================================================
+%%% @author Mathieu Kerjouan <contact at erlang-punch.com>
 %%% @doc THIS IS A DRAFT
 %%%
 %%% @end
@@ -52,7 +53,7 @@ terminate(_Reason, _State) ->
     ok.
 
 %%--------------------------------------------------------------------
-%% @doc 
+%% @doc
 %% @end
 %%--------------------------------------------------------------------
 -spec handle_cast(Message, State) -> Return when
@@ -62,9 +63,9 @@ terminate(_Reason, _State) ->
 handle_cast({add, #event{ id = Id } = Message}, #state{ ets = Ets } = State) ->
     ets:insert(Ets, {Id, Message}),
     {noreply, State}.
-    
+
 %%--------------------------------------------------------------------
-%% @doc 
+%% @doc
 %% @end
 %%--------------------------------------------------------------------
 -spec handle_call(Message, From, State) -> Return when
@@ -77,7 +78,7 @@ handle_call(export, _From, #state{ ets = Ets} = State) ->
     {reply, Return, State}.
 
 %%--------------------------------------------------------------------
-%% @doc 
+%% @doc
 %% @end
 %%--------------------------------------------------------------------
 -spec handle_info(Message, State) -> Return when
@@ -86,7 +87,7 @@ handle_call(export, _From, #state{ ets = Ets} = State) ->
       Return :: {noreply, State}.
 handle_info(_Message, State) ->
     {noreply, State}.
-    
+
 %%--------------------------------------------------------------------
 %% @doc add a new message in ets store.
 %% @end
@@ -122,4 +123,3 @@ export(Args) ->
         [] ->
             {error, ?MODULE}
     end.
-

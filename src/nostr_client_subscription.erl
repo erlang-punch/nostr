@@ -11,7 +11,7 @@
 %%% % start a new subcription connected to an existing client
 %%% Filter = [{limit, 10}, {kinds, [0,1]}].
 %%% {ok, Subscription} = nostr_client_subscription:start([
-%%%   {client, Client}, 
+%%%   {client, Client},
 %%%   {filter, Filter}
 %%% ]).
 %%%

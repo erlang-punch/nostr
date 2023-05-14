@@ -1,4 +1,5 @@
 %%%===================================================================
+%%% @author Mathieu Kerjouan <contact at erlang-punch.com>
 %%% @doc `nostr_relay_listener' module is a wrapper around cowboy
 %%%      module to start and stop a cowboy listener. Any message
 %%%      received on this process will stop the listener.
@@ -14,7 +15,7 @@
 -record(state, { name = undefined
                , transport = undefined
                , protocol = undefined
-               , pid = undefined 
+               , pid = undefined
                }).
 
 %%--------------------------------------------------------------------
@@ -50,7 +51,7 @@ init(Args) ->
     State = #state{ name = Name
                   , transport = TransportOpts
                   , protocol = ProtocolOpts
-                  , pid = Pid 
+                  , pid = Pid
                   },
     pg:join(relay, {?MODULE, Port, Domain}, self()),
     {ok, State}.

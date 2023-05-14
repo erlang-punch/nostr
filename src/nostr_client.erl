@@ -120,7 +120,7 @@ event(Host, set_metadata, Content, Opts)
             nostr_client_connection:send_raw(Connection, Payload);
         Elsewise -> Elsewise
     end;
-event(Host, text_note, Content, Opts) 
+event(Host, text_note, Content, Opts)
   when is_binary(Content) ->
     case get_process(Host, connection) of
         {ok, Connection} ->
@@ -188,7 +188,7 @@ request(Host, Filter, Opts) ->
             {ok, SubscriptionId};
         Elsewise -> Elsewise
     end.
-              
+
 %%--------------------------------------------------------------------
 %% @doc `close/2'
 %%
@@ -248,13 +248,13 @@ get_process(Host, Identifier) ->
       Event :: #event{},
       Opts :: proplists:proplists(),
       Return :: ok.
-       
+
 send(Host, #event{} = Event, Opts) ->
     % @todo need a check there.
     {ok, Pid} = get_process(Host, connection),
     case nostrlib:encode(Event, Opts) of
-        {ok, EncodedEvent} -> 
+        {ok, EncodedEvent} ->
             nostr_client_connection:send_raw(Pid, EncodedEvent);
-        {error, _} = Error -> 
+        {error, _} = Error ->
             Error
     end.

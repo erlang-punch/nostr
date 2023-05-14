@@ -1,8 +1,8 @@
-%%%-------------------------------------------------------------------
+%%%===================================================================
 %%% @author Mathieu Kerjouan <contact at erlang-punch dot com>
 %%% @doc
-%%% @ed
-%%%-------------------------------------------------------------------
+%%% @end
+%%%===================================================================
 -module(nostr_client_key_SUITE).
 -export([suite/0]).
 -export([init_per_suite/1, end_per_suite/1]).
@@ -24,7 +24,7 @@
 
 suite() -> [{timetrap,{minutes,10}}].
 
-init_per_suite(Config) -> 
+init_per_suite(Config) ->
     application:ensure_all_started(nostr),
     Config.
 
@@ -83,7 +83,7 @@ simple(_Config) ->
     % update a value and then sync it on the disk
     ok = nostr_client_key:set_metadata(Pid, name, <<"test_sync">>),
     ok = nostr_client_key:sync(Pid),
-    
+
     % alter the data and reload them from the store on the filesystem
     ok = nostr_client_key:set_metadata(Pid, name, <<"test_alter">>),
     {ok, <<"test_alter">>} = nostr_client_key:get_metadata(Pid, name),
@@ -93,7 +93,7 @@ simple(_Config) ->
     % reset the old name and resync the datastore
     ok = nostr_client_key:set_metadata(Pid, name, <<"test_name">>),
     ok = nostr_client_key:sync(Pid),
-     
+
     % start a new process with the same name
     {ok, Pid2} = nostr_client_key:start([{name, <<"test">>}]),
 
@@ -103,7 +103,7 @@ simple(_Config) ->
 
     % cleanup
     gen_server:stop(Pid),
-    gen_server:stop(Pid2).    
+    gen_server:stop(Pid2).
 
 %%--------------------------------------------------------------------
 %% @doc internal. Modify the home directory with a random one.

@@ -1,6 +1,8 @@
-%%%-------------------------------------------------------------------
-%%%
-%%%-------------------------------------------------------------------
+%%%===================================================================
+%%% @author Mathieu Kerjouan <contact at erlang-punch dot com>
+%%% @doc
+%%% @end
+%%%===================================================================
 -module(nostr_client_SUITE).
 -export([suite/0]).
 -export([init_per_suite/1, end_per_suite/1]).
@@ -24,7 +26,7 @@
 
 suite() -> [{timetrap,{minutes,10}}].
 
-init_per_suite(Config) -> 
+init_per_suite(Config) ->
     application:ensure_all_started(nostr),
     Config.
 
@@ -92,14 +94,14 @@ contact_list(_Config) ->
     List = nostr_client_contacts:list(Pid),
     [{<<1:256>>, <<>>, <<>>}
     ,{<<2:256>>, <<"two">>, <<>>}
-    ,{<<3:256>>, <<"three">>, <<"wss://three.local">>}] 
+    ,{<<3:256>>, <<"three">>, <<"wss://three.local">>}]
         = lists:sort(List),
-    
+
     % delete a public ey
     ok = nostr_client_contacts:delete(Pid, <<1:256>>),
     List2 = nostr_client_contacts:list(Pid),
     [{<<2:256>>, <<"two">>, <<>>}
-    ,{<<3:256>>, <<"three">>, <<"wss://three.local">>}] 
+    ,{<<3:256>>, <<"three">>, <<"wss://three.local">>}]
         = lists:sort(List2),
 
     % export the contacts

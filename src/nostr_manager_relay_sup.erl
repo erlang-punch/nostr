@@ -1,9 +1,9 @@
 %%%===================================================================
+%%% @author Mathieu Kerjouan <contact at erlang-punch.com>
 %%% @doc `nostr_manager_relay_sup' creates new group of relay
 %%% processes to manage a `nostr' server.
 %%%
 %%% @end
-%%% @author Mathieu Kerjouan <contact at erlang-punch.com>
 %%%===================================================================
 -module(nostr_manager_relay_sup).
 -behaviour(supervisor).
@@ -72,4 +72,3 @@ spec_relay_sup(Args) ->
       Return :: supervisor:startchild_ret().
 start_relay_sup(Args) ->
     supervisor:start_child(?MODULE, spec_relay_sup(Args)).
-

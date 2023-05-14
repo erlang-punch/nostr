@@ -1,9 +1,9 @@
 %%%===================================================================
+%%% @author Mathieu Kerjouan <contact at erlang-punch.com>
 %%% @doc THIS FILE IS A DRAFT.
 %%%
 %%% @todo create a start/1 function to start a new relay
 %%% @end
-%%% @author Mathieu Kerjouan <contact at erlang-punch.com>
 %%%===================================================================
 -module(nostr_relay).
 -export([start/0, start/1]).

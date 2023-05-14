@@ -14,4 +14,3 @@ hyperrefoptions:
 ---
 
 # Implementing a Local Client Key Store
-
