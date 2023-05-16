@@ -10,6 +10,8 @@ jobs:
         container:
           - erlang:25
           - erlang:25-alpine
+          - erlang:26
+          - erlang:26-alpine
     container:
       image: ${{ matrix.container }}
     steps:
