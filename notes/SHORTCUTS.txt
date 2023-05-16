@@ -262,7 +262,7 @@ do these small session. Designing something is hard, and I did not
 even really tested this application in real life! Anyway, see you for
 the next shortcuts, have a great week! :)
 
-== 2023-05-09: Shorcut_23/19
+== 2023-05-09: Shortcut_23/19
 
 Hi everyone! The week was a bit exausting on my side... So, I will try
 to continue the previous implementation of nip/05. First, we will read
@@ -276,7 +276,7 @@ the change during the last session. Okay! Let's go!
  ! require documentation on many functions
  ! need to check the data stored in names and relays attributes.
 
-== 2023-05-09: Shorcut_23/20
+== 2023-05-09: Shortcut_23/20
 
 Did some cleanup, in particular in the init function.
 
@@ -286,7 +286,7 @@ Did some cleanup, in particular in the init function.
  + added more documentation
  ! need to rename this module to nostr_client_nip05
 
-== 2023-05-09: Shorcut_23/21
+== 2023-05-09: Shortcut_23/21
 
 This last part was dedicated to test the process... And it does not
 work correctly. Anyway, it will be fixed next time. When creating a
@@ -299,3 +299,62 @@ Anyway, see you Friday... :)
  + did some tests
  ~ fixed a bug in the path used to fetch the information
  ~ fixed few other bugs
+
+== 2023-05-16: Shortcut_23/22
+
+Hi everyone! So, another shortcut session... We start with lot of
+typos to fix. Last week we did the first nip/05 implementation in a
+dedicated process using gen_statem. We had some issues with the
+connection to the remote server, I found the problem just after the
+session, it was due to the TLS timeout I had configured. It was fixed
+and it worked. Today, I also updated Erlang version to the latest one
+available (R26), cowboy and gun were also updated as well. Those
+session will be dedicated to test and finish nip05
+implementation. Let's do it!
+
+ + checked if the process was working, and it is the case
+ + added few documentation to explain how it's working
+ ! need to modify the way we store the value
+ ! need to create simple interfaces (and document them)
+ ! cleanup the mess... This module is hard to understand at first glance.
+ ? modify the data-structure used?
+
+== 2023-05-16: Shortcut_23/23
+
+Continue to implement nip/05. Fix bugs and try to simplify the way
+it's actually done.
+
+ + created is_valid/1 interface
+ + created check_identifier_validity/2 to check if the identifier
+   and the key are the same on the remote server.
+ ~ cleaned up the documentation and the exported functions
+ ! it's still mess...
+ ? is it really the good way to do? exporting a simple function
+   to check if the identifier is valid could be easier. Another
+   way is to create a kind of callback to set the value found
+   and update another data-structure somewhere else.
+ ? this feature will be used by the client and the relay, create
+   a behavior instead of a full gen_statem could also be helpful.
+
+== 2023-05-16: Shortcut_23/24
+
+Okay, we have some functional, it's working but there are still some
+bugs to fix. Let's go for a third round.
+
+ + add notification support (created init_notify/2)
+ + add more documentation
+ + add identifier/1 and public_key/1 (could be helpful)
+ ~ modified the record, it has now the raw identifier (if valid)
+ ! Add tests...!
+ ! Add a local server to mock this part of the code in the
+   test suite.
+ ? I think this code will be refactored, some parts are quite
+   dirty and I don't really like the way it's done. We'll see in
+   another session.
+   
+So, I think we have a working process/module. It's not perfect at all
+but we will improve that when the whole stack will work. At least, we
+can now check if an identifier is valid (or not). The next step is to
+integrate this module/process directly on the client and server
+sides... See you soon! :)
+
