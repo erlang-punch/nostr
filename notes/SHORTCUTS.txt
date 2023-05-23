@@ -358,3 +358,74 @@ can now check if an identifier is valid (or not). The next step is to
 integrate this module/process directly on the client and server
 sides... See you soon! :)
 
+== 2023-05-23: Shortcut_23/25
+
+Hey everyone! Ready for a new shortcut session? Well, we should
+probably start by reading what we have done last week... So, we have a
+working nip/05 implementation, it can be used by the client and the
+server. We will need to plug that in our client and/or our routers. If
+you take a look on the specification, when an event is coming to the
+client with the field `nip05` it should check its content and validate
+it. The relay is not correctly supported if I remember correctly, so,
+we will probably need to work on that as well. We will also need to
+check the content (if it's an hex key or not). Let's do that?
+
+If I want to check this implementation, I will need to configure a
+domain name pointing somewhere and returning the correct information,
+something like toriko@test.erlangpunch.com (test domain). What if we
+configure the server side first? When we have a valid user on our
+side, we can enable a local server forwarding to the correct value. It
+should be easy to do.
+
+ + created nostr_relay_nip05_handler module (nip05 support on server
+   side)
+ + started just a quick session to test if everything was working. The
+   documentation is not accurate, need to update it
+ + created an isolated nostr_relay_listener:routes/1 function
+ ! need to create a sub-domain to test the application and do a small
+   reverse proxy (say test.erlangpunch.com).
+   
+== 2023-05-23: Shortcut_23/26
+
+Let's start the second round. We will create a local relay handling
+.well-known/nostr.json path (without https for the moment).
+
+ ~ modified router in nostr_relay_listener
+ + created nostr_relay_nip05_handler module
+ + created nostr_relay_nip05_handler:lookup/3 to search in the
+   active user (it's only a test for the moment).
+ ! add a way to print the relay where the user can be found
+ ! improve nostr_relay_nip05_handler:lookup_public_key/1.
+ ! improve documentation and add notes, it could be a bit confusing.
+ ? I think I already talked about that, but the current design is not
+   really correct and needs to be fixed. The goal is to create many
+   users and they can be connected to one or more relay. In this case,
+   the internal relay will find them directly from the database of
+   active user and create automatically the names/public keys
+   available.
+
+== 2023-05-23: Shortcut_23/27
+
+So, last shortcut tonight, the third one. I will continue to create
+nostr_relay_nip05_handler module and will go to bed! This module is
+working, at least, locally, with hardcoded values and without
+https... But the idea is there. The current relay was implemented to
+be only used in test suite, the database is not even correctly
+working.
+
+ + added nip05 CORS support
+ + added more documentation and notes
+ + created a function to list all users on the server
+ + created a functio nto list one user on the server
+ ! those functions are using hardcoded values and should not be
+   used in production ;)
+ ! need to modify the whole structure, like I said previously,
+   an user should be isolated and select the relay he wants.
+
+So, it's done for tonight! I know, it was not really... fun but we
+will improve that very soon. The current application is already
+working a little bit, and nip05 was a requirement to use it into the
+wild. A will create a custom domain name containing my testing data
+and will try to publish some events next week :)
+
+Have a good day, good night, and as usual, thanks for watching! ;)

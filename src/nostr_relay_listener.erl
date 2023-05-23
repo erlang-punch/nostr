@@ -43,8 +43,7 @@ init(Args) ->
     Domain = proplists:get_value(domain, Args, '_'),
     Name = {nostr_relay_listener, Port},
     TransportOpts = [{port, Port}],
-    RouteOpts = [{port, Port}, {domain, Domain}],
-    Routes = [{Domain, [{"/", nostr_relay_handler, RouteOpts}]}],
+    Routes = routes(Args),
     Dispatch = cowboy_router:compile(Routes),
     ProtocolOpts = #{ env => #{ dispatch => Dispatch }},
     {ok, Pid} = cowboy:start_clear(Name, TransportOpts, ProtocolOpts),
@@ -55,6 +54,20 @@ init(Args) ->
                   },
     pg:join(relay, {?MODULE, Port, Domain}, self()),
     {ok, State}.
+
+%%--------------------------------------------------------------------
+%% @hidden
+%% @doc internal.
+%% @end
+%%--------------------------------------------------------------------
+routes(Args) ->
+    Port = proplists:get_value(port, Args, 4000),
+    Domain = proplists:get_value(domain, Args, '_'),
+    RouteOpts = [{port, Port}, {domain, Domain}],
+    [{Domain, [{"/", nostr_relay_handler, RouteOpts}
+              ,{"/.well-known/nostr.json", nostr_relay_nip05_handler, RouteOpts}
+              ]}
+    ].
 
 %%--------------------------------------------------------------------
 %% @doc stop a listener
