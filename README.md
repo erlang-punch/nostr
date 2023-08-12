@@ -69,6 +69,8 @@ Here the list of currently supported
 ## Other Implementation (required by nostr)
 
  - [x] [BIP-0340: Schnorr Signatures for secp256k1](https://github.com/bitcoin/bips/blob/master/bip-0340.mediawiki)
+ - [x] [BIP-0173: Base32 address format for native v0-16 witness outputs](https://github.com/bitcoin/bips/blob/master/bip-0173.mediawiki)
+ - [x] [BIP-0350: Bech32m format for v1+ witness addresses](https://github.com/bitcoin/bips/blob/master/bip-0350.mediawiki)
 
 ## Build
 
