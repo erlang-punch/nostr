@@ -15,7 +15,7 @@ hyperrefoptions:
 
 ---
 
-This article has been redacted inMarch 2023. It describes the
+This article started to be written in March 2023. It describes the
 methodologies applied and describes the methods used to implement the
 NIP/02 from nostr protocol in Erlang with a minimal amount of
 dependencies. The following code has been tested using [Erlang/OTP
@@ -33,8 +33,6 @@ functions to deal with the event format and the client part.
 
 
 ```erlang
-
-
 ```
 
 # Conclusion

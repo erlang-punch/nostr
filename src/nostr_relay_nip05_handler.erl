@@ -64,7 +64,7 @@ all(Req0, State) ->
 list_all() ->
     All = #{ <<"toriko">> => <<"151e6b8357313e5cee561225b5dd08a76f58924a24ac10781aebab4ed36ac655">>,
              <<"zero">> => <<"0000000000000000000000000000000000000000000000000000000000000000">>,
-             <<"one">> => <<"0000000000000000000000000000000000000000000000000000000000000001">> 
+             <<"one">> => <<"0000000000000000000000000000000000000000000000000000000000000001">>
            },
     {ok, All}.
 
@@ -94,7 +94,7 @@ found(Name, PublicKey, Req0, State) ->
 %% @doc internal.
 %% @end
 %%--------------------------------------------------------------------
-not_found(Req0, State) ->    
+not_found(Req0, State) ->
     Response = thoas:encode(#{ <<"names">> => #{} }),
     Req1 = cowboy_req:reply(200, ?HEADERS, Response, Req0),
     {ok, Req1, State}.
@@ -110,5 +110,3 @@ lookup_public_key(<<"toriko">>) ->
     {ok, <<"151e6b8357313e5cee561225b5dd08a76f58924a24ac10781aebab4ed36ac655">>};
 lookup_public_key(_Name) ->
     {error, notfound}.
-    
-    

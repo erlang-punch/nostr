@@ -95,7 +95,7 @@
 %% <ul>
 %%   <li>`identifier': set the identifier to check</li>
 %%   <li>`public_key': set the identifier public_key to check</li>
-%%   <li>`notify': a pid or a list of pid to notify when we have 
+%%   <li>`notify': a pid or a list of pid to notify when we have
 %%                 the answer</li>
 %% </ul>
 %%
@@ -144,7 +144,7 @@ callback_mode() -> [state_functions, state_enter].
 
 %%--------------------------------------------------------------------
 %% @hidden
-%% @doc internal. 
+%% @doc internal.
 %%
 %% Create a new connection based on the identifier passed as first
 %% argument. The identifier use the format "localpart@domain", like
@@ -152,7 +152,7 @@ callback_mode() -> [state_functions, state_enter].
 %%
 %% @end
 %%--------------------------------------------------------------------
--spec init(Opts) -> Return when 
+-spec init(Opts) -> Return when
       Opts :: proplists:proplists(),
       Return :: {ok, wait, #state{}}.
 
@@ -166,16 +166,16 @@ init(Opts) ->
 %%
 %% check if the identifier is present. If it's the case, convert it as
 %% target.
-%% 
+%%
 %% @todo manage exception when creating the target.
 %% @end
 %%--------------------------------------------------------------------
 init_identifier(Opts, State) ->
     case proplists:get_value(identifier, Opts, undefined) of
-        undefined -> 
+        undefined ->
             ?LOG_ERROR("~p: missing identifier", [{?MODULE, self()}]),
             {stop, [{message, <<"missing identifier">>}]};
-        Identifier -> 
+        Identifier ->
             {ok, Target} = new(Identifier),
             NewState = State#state{ target = Target, identifier = Identifier },
             init_public_key(Opts, NewState)
@@ -187,7 +187,7 @@ init_identifier(Opts, State) ->
 %%
 %% A public key is required there, the content from the server should
 %% be compared to it.
-%% 
+%%
 %% @todo validated the public key passed in opts.
 %% @end
 %%--------------------------------------------------------------------
@@ -260,9 +260,9 @@ init_connection(#state{ target = Target } = State) ->
       Message :: tuple(),
       Data :: #state{},
       Return :: tuple().
-          
+
 wait(enter, _, #state{ target = #{ path := Path }
-                     , connection = Connection } = State) ->    
+                     , connection = Connection } = State) ->
     ConnectionReference = gun:get(Connection, Path),
     ?LOG_DEBUG("~p: get path ~p", [{?MODULE, self(), State}, Path]),
     NewState = State#state{ connection_reference = ConnectionReference },
@@ -359,8 +359,8 @@ done({call, From}, is_valid, State) ->
 %%--------------------------------------------------------------------
 -spec new(binary()) -> any().
 new(Identifier) ->
-    Regex = <<"^(?<localpart>[a-z0-_]+)", 
-              "@", 
+    Regex = <<"^(?<localpart>[a-z0-_]+)",
+              "@",
               "(?<domain>[a-zA-Z]+\.[a-zA-Z]+)$">>,
     RegexOpts = [extended, {capture,all_names,binary}],
     {ok, MP} = re:compile(Regex),
@@ -380,14 +380,14 @@ new(Identifier) ->
 %% @todo add documentation
 %% @end
 %%--------------------------------------------------------------------
-target(#{ <<"localpart">> := LocalPart 
+target(#{ <<"localpart">> := LocalPart
               , <<"domain">> := Domain
               } = Identifier) ->
     {ok, Uri} = uri(LocalPart, Domain),
     {ok, Url} = url(Uri),
     {ok, Path} = path(Uri),
-    Return = Identifier#{ url => Url, 
-                          uri => Uri, 
+    Return = Identifier#{ url => Url,
+                          uri => Uri,
                           path => Path },
     {ok, Return}.
 
@@ -442,7 +442,7 @@ open(#{ <<"domain">> := Domain } = _Target) ->
     TlsOpts = [{cacerts, Certs}
               ,{verify, verify_peer}],
     GunOpts = #{ tls_opts => TlsOpts
-               % @todo fix this timeout, to something more acceptable!  
+               % @todo fix this timeout, to something more acceptable!
                % , tls_handshake_timeout => 3
                , transport => tls
                },
@@ -476,7 +476,7 @@ parse_json(Data) ->
 check_json_test() ->
     BobKey = <<"b0635d6a9851d3aed0cd6c495b282167acf761729078d975fc341b22650b07b9">>,
     [?assertEqual({error, [{data, #{}}]}, parse_json(<<"{}">>))
-    ,?assertEqual({ok, #{ <<"names">> => #{ <<"bob">> => BobKey } 
+    ,?assertEqual({ok, #{ <<"names">> => #{ <<"bob">> => BobKey }
                         , <<"relays">> => #{}
                         }}
                  ,parse_json(<<"{ \"names\": { \"bob\": \"",BobKey/bitstring,"\"} }">>)
@@ -495,7 +495,7 @@ check_json_test() ->
 %%
 %% @end
 %%--------------------------------------------------------------------
-check_json_names(#{ <<"names">> := Names } = Map, Buffer) 
+check_json_names(#{ <<"names">> := Names } = Map, Buffer)
   when is_map(Names) ->
     check_json_relays(Map, Buffer#{ <<"names">> => Names });
 check_json_names(Map, _Buffer) ->
@@ -536,7 +536,7 @@ check_identifier_validity(#{ <<"names">> := Names }
                          ,#state{ target = #{ <<"localpart">> := LocalPart }
                                 , public_key = PublicKey } = State) ->
     case maps:get(LocalPart, Names) of
-        RemoteKey 
+        RemoteKey
           when RemoteKey =:= PublicKey ->
             State#state{ valid = true };
         _ ->
@@ -544,7 +544,7 @@ check_identifier_validity(#{ <<"names">> := Names }
     end;
 
 check_identifier_validity(_, State) -> State.
-    
+
 %%--------------------------------------------------------------------
 %% @doc `is_valid/1' returns if the identifier is valid or not.
 %%
@@ -575,4 +575,3 @@ identifier(Pid) -> gen_statem:call(Pid, identifier, 10000).
       Return :: binary() | timeout.
 
 public_key(Pid) -> gen_statem:call(Pid, public_key, 10000).
-    

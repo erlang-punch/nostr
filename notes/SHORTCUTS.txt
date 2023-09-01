@@ -351,7 +351,7 @@ bugs to fix. Let's go for a third round.
  ? I think this code will be refactored, some parts are quite
    dirty and I don't really like the way it's done. We'll see in
    another session.
-   
+
 So, I think we have a working process/module. It's not perfect at all
 but we will improve that when the whole stack will work. At least, we
 can now check if an identifier is valid (or not). The next step is to
@@ -384,7 +384,7 @@ should be easy to do.
  + created an isolated nostr_relay_listener:routes/1 function
  ! need to create a sub-domain to test the application and do a small
    reverse proxy (say test.erlangpunch.com).
-   
+
 == 2023-05-23: Shortcut_23/26
 
 Let's start the second round. We will create a local relay handling
