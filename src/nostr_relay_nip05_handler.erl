@@ -2,9 +2,26 @@
 %%% @doc THIS IS A DRAFT
 %%%
 %%% This module implement the support of nip05 on the server side. By
-%%% default, it should return all active users using the current
+%%% default, it should return all active users used in the current
 %%% session.
 %%%
+%%% By default, this information can be retrieved using
+%%% `.well-known/nostr.json` path. It will returns the list of all
+%%% users.
+%%%
+%%% ```
+%%% curl localhost:4000/.well-known/nostr.json
+%%% '''
+%%%
+%%% If you want to have access (or check) one user.
+%%%
+%%% ```
+%%% curl localhost:4000/.well-known/nostr.json?name=toriko
+%%% '''
+%%%
+%%% In both case, it should return a json or a list of json objects.
+%%%
+%%% see also:
 %%% https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Access-Control-Allow-Origin
 %%%
 %%% @todo add filter per users (some of them will probably don't allow

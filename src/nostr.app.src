@@ -16,6 +16,7 @@
    ,gun
    ,crypto
    ,public_key
+   ,mnesia
    ]}
  ,{optional_applications, []}
  ,{env, []}

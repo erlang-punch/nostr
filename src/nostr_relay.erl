@@ -2,6 +2,18 @@
 %%% @author Mathieu Kerjouan <contact at erlang-punch.com>
 %%% @doc THIS FILE IS A DRAFT.
 %%%
+%%% To start this relay, you can use the following functions:
+%%%
+%%% ```
+%%% nostr_relay:start([{port, 4000}]).
+%%% '''
+%%%
+%%% By default this module will already listen to port TCP/4000.
+%%%
+%%% ```
+%%% nostr_relay:start().
+%%% '''
+%%%
 %%% @todo create a start/1 function to start a new relay
 %%% @end
 %%%===================================================================
