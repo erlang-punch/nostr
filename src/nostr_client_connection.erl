@@ -47,6 +47,7 @@
                , arguments      = []
                , http_link      = false
                , websocket_link = false
+               , target         = undefined
                }).
 -type nostr_client_connection_state() :: #state{}.
 
@@ -234,6 +235,7 @@ init(Args) ->
     Port = proplists:get_value(port, Args, 443),
     Transport = proplists:get_value(transport, Args, tls),
     Path = proplists:get_value(path, Args, "/"),
+    Target = {Host, Port, Transport, Path},
     WebSocketOptions = proplists:get_value(websocket_opts, Args, []),
 
     case proplists:get_value(tls, Args, true) of
@@ -251,9 +253,16 @@ init(Args) ->
             % @TODO the id must be defined with something different
             pg:join(client, {Host, connection}, self()),
 
+            % create a new connection in mnesia store.
+            'nostr@clients':create_client(#{ target => Target 
+                                           , connection => Connection
+                                           , controller => self()
+                                           }),
+
             State = #state{ connection = Connection
                           , websocket = Ref
                           , arguments = Args
+                          , target = Target
                           },
             ?LOG_INFO("~p", [{?MODULE, self(), init, Args, State}]),
             {ok, State};
@@ -287,8 +296,15 @@ init(Args) ->
       State :: to_be_defined(),
       Return :: ok.
 
-terminate(Reason, #state{connection = Connection} = State) ->
+terminate(Reason, #state{ connection = Connection
+                        , target = Target 
+                        } = State) ->
     ?LOG_INFO("~p", [{?MODULE, self(), terminate, Reason, State}]),
+
+    % delete the connection from mnesia
+    'nostr@clients':delete_client(#{ target => Target }),
+
+    % shutdown the connection
     gun:shutdown(Connection),
     ok.
 

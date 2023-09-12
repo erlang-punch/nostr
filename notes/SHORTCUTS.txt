@@ -492,3 +492,56 @@ store clients state. That's a good thing for the first one.
    working...
 
 See you next time friends; I need to drink some water. :')
+
+== 2023-09-12: Shortcut_24/03
+
+Hey everyone! Ready for a new shortcut session? Let's continue
+working on nostr. Today, I was thinking on the current structure
+of the application and all the mess I did during the last
+shortcuts. I think I will merge all the previous branches
+during the week and restart from a fresh branch. Anyway, last week
+we were working with mnesia, we'll continue that for tonight.
+
+  nostr_client_connection:start([{host, "nostr.sidnlabs.nl"}, {port, 443}]).
+
+Okay, first session's over. When a new connection is created, its information
+is now stored in mnesia (but also in process group). We don't want
+to deal with the full id made of host, port, protocol (tls) and path, but
+with want something to filter these elements from the database. This will
+be the goal of the function `nostr@clients:get_client_by_host/1`.
+
+I still think using process group and supervisor to store information could
+be a good idea but it requires too much efforts. I will also probably
+change the way arguments are passed. Instead of using proplists, I will
+use some maps, better to do pattern matching, and more flexible.
+
+ + can now list client
+ + when connected, client is added in mnesia
+ + when stopped, client is removed from mnesia
+ ~ get client by hostname.
+ ! change all datastructure used to pass argument
+
+== 2023-09-12: Shortcut_24/04
+
+I will stop for tonight. ~1h dedicated is enough. If I have
+more time this week-end, perhaps doing a long session could
+help me to fix all the mess I did :)
+
+Anyway, we have now the function to get clients by their
+hostname after a - very - long fight with match pattern,
+a powerful feature, but hard to master. Next time, I use
+`etf:fun2ms` to create a match pattern based on function!
+
+ + create list_client_by_host/1
+ ? the data structure used is not flexible enough.
+ ! this module is dirty, a clean up is needed.
+
+Well, it was a short live session, but I am also working
+on other projects, and allocating 1h is already a bit
+hard. If you are interested, I recently created an interface
+using NIF to manage cozodb. To be honest, that's a really
+nice project, and I will (perhaps) add it in nostr to
+store data instead of mnesia. We'll see!
+
+See you Friday for another paper session, if not, see
+you next Tuesday! ;)

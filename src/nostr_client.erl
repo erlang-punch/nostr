@@ -83,6 +83,9 @@ connect(Host) ->
       Return :: any(). % TODO: check the return function of gun module.
 
 connect(Host, Options) ->
+    % so we need to modify this part of the code. When a client
+    % is started, instead of creating a group, we will add it
+    % in mnesia.
     nostr_manager_client_sup:start_client_sup([{host, Host}] ++ Options).
 
 %%--------------------------------------------------------------------
