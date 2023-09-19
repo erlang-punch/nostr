@@ -47,7 +47,14 @@
                , arguments      = []
                , http_link      = false
                , websocket_link = false
-               , target         = undefined
+               , port           = 443
+               , host           = undefined
+               , transport      = undefined
+               , path           = undefined
+               , websocket_opts = undefined
+               , tls            = true
+               , tls_opts       = undefined
+               , connection_opts = undefined
                }).
 -type nostr_client_connection_state() :: #state{}.
 
@@ -229,58 +236,175 @@ send_json(Pid, Term) ->
       State :: nostr_client_connection_state().
 
 init(Args) ->
-    % @TODO remove debug mode
     logger:set_module_level(?MODULE, debug),
-    Host = proplists:get_value(host, Args, undefined),
-    Port = proplists:get_value(port, Args, 443),
-    Transport = proplists:get_value(transport, Args, tls),
-    Path = proplists:get_value(path, Args, "/"),
-    Target = {Host, Port, Transport, Path},
-    WebSocketOptions = proplists:get_value(websocket_opts, Args, []),
+    State = #state{},
+    init_host(Args, State).
 
+%%--------------------------------------------------------------------
+%% @doc
+%% @end
+%%--------------------------------------------------------------------
+init_host(Args, State)->
+    case proplists:get_value(host, Args) of
+        Host when is_list(Host) -> 
+            NewState = State#state{ host = Host },
+            init_port(Args, NewState);
+        Host ->
+            {stop, {invalid, Host}}
+    end.
+
+%%--------------------------------------------------------------------
+%% @doc
+%% @end
+%%--------------------------------------------------------------------
+init_port(Args, State) ->
+    case proplists:get_value(port, Args, 443) of
+        Port when is_integer(Port) ->
+            NewState = State#state{ port = Port },
+            init_transport(Args, NewState);
+        Port ->
+            {stop, {invalid, Port}}
+    end.
+
+%%--------------------------------------------------------------------
+%% @doc
+%% @end
+%%--------------------------------------------------------------------
+init_transport(Args, State) ->    
+    case proplists:get_value(transport, Args, tls) of
+        tls ->
+            NewState = State#state{ transport = tls },
+            init_path(Args, NewState);
+        Transport ->
+            {stop, {invalid, Transport}}
+    end.
+
+%%--------------------------------------------------------------------
+%% @doc
+%% @end
+%%--------------------------------------------------------------------
+init_path(Args, State) ->
+    case proplists:get_value(path, Args, "/") of
+        Path when is_list(Path) ->
+            NewState = State#state{ path = Path },
+            init_websocket_options(Args, NewState);
+        Path ->
+            {stop, {invalid, Path}}
+    end.
+
+%%--------------------------------------------------------------------
+%% @doc
+%% @end
+%%--------------------------------------------------------------------
+init_websocket_options(Args, State) ->
+    case proplists:get_value(websocket_opts, Args, []) of
+        WebsocketOpts when is_list(WebsocketOpts) ->
+            NewState = State#state{ websocket_opts = WebsocketOpts },
+            init_tls(Args, NewState);
+        WebsocketOpts -> 
+            {stop, {invalid, WebsocketOpts}}
+    end.
+
+%%--------------------------------------------------------------------
+%% @doc
+%% @end
+%%--------------------------------------------------------------------
+init_tls(Args, State) ->
     case proplists:get_value(tls, Args, true) of
         true ->
-            CACerts = proplists:get_value(cacerts, Args, public_key:cacerts_get()),
-            TLSOpts = [ {verify, verify_peer}
-                      , {cacerts, CACerts}
-                      ],
-            ConnectionOpts = #{ transport => Transport
-                              , tls_opts => TLSOpts
+            init_tls_opts(Args, State);
+        _ ->
+            init_connection(Args, State)
+    end.
+
+%%--------------------------------------------------------------------
+%% @doc
+%% @end
+%%--------------------------------------------------------------------
+init_tls_opts(Args, State) ->
+    CACerts = proplists:get_value(cacerts, Args, public_key:cacerts_get()),
+    TLSOpts = [ {verify, verify_peer}
+              , {cacerts, CACerts}
+              ],
+    ConnectionOpts = #{ transport => State#state.transport
+                      , tls_opts => TLSOpts
                       },
-            {ok, Connection} = gun:open(Host, Port, ConnectionOpts),
-            Ref = gun:ws_upgrade(Connection, Path, WebSocketOptions),
-
-            % @TODO the id must be defined with something different
-            pg:join(client, {Host, connection}, self()),
-
-            % create a new connection in mnesia store.
-            'nostr@clients':create_client(#{ target => Target 
-                                           , connection => Connection
-                                           , controller => self()
-                                           }),
-
-            State = #state{ connection = Connection
-                          , websocket = Ref
-                          , arguments = Args
-                          , target = Target
+    NewState = State#state{ tls_opts = TLSOpts
+                          , connection_opts = ConnectionOpts
                           },
-            ?LOG_INFO("~p", [{?MODULE, self(), init, Args, State}]),
-            {ok, State};
-        false ->
-            ConnectionOpts = #{},
-            {ok, Connection} = gun:open(Host, Port, ConnectionOpts),
-            Ref = gun:ws_upgrade(Connection, Path, WebSocketOptions),
+    init_tls_connection(Args, NewState).
 
-            % @TODO the id must be defined with something different
-            pg:join(client, {Host, connection}, self()),
+%%--------------------------------------------------------------------
+%% @doc
+%% @end
+%%--------------------------------------------------------------------
+init_tls_connection(Args, State) ->
+    case gun:open( State#state.host
+                 , State#state.port
+                 , State#state.connection_opts) of
+        {ok, Connection} ->
+            NewState = State#state{ connection = Connection },
+            init_websocket_connection(Args, NewState);
+        Elsewise -> 
+            Elsewise
+    end.
 
-            State = #state{ connection = Connection
-                          , websocket = Ref
+%%--------------------------------------------------------------------
+%% @doc
+%% @end
+%%--------------------------------------------------------------------
+init_websocket_connection(Args, State) ->
+    Ref = gun:ws_upgrade( State#state.connection
+                        , State#state.path
+                        , State#state.websocket_opts),    
+    NewState = State#state{ websocket = Ref
                           , arguments = Args
                           },
-            ?LOG_INFO("~p", [{?MODULE, self(), init, Args, State}]),
-            {ok, State}
-        end.
+    ?LOG_INFO("~p", [{?MODULE, self(), init, Args, State}]),
+    [ apply(Fun, [State]) || Fun <- [fun init_notify_pg/1
+                                    ,fun init_notify_mnesia/1 ]],
+    {ok, NewState}.
+
+%%--------------------------------------------------------------------
+%% @doc
+%% @end
+%%--------------------------------------------------------------------
+init_notify_pg(State) ->
+    pg:join(client, {State#state.host, connection}, self()).
+
+%%--------------------------------------------------------------------
+%% @doc
+%% @end
+%%--------------------------------------------------------------------
+init_notify_mnesia(State) ->
+    Target = { State#state.host
+             , State#state.port
+             },
+    'nostr@clients':create_client(#{ target => Target 
+                                   , connection => State#state.connection
+                                   , controller => self()
+                                   }).
+
+
+%%--------------------------------------------------------------------
+%% @doc
+%% @end
+%%--------------------------------------------------------------------
+init_connection(Args, State) ->
+    %% ConnectionOpts = #{},
+    %% {ok, Connection} = gun:open(Host, Port, ConnectionOpts),
+    %% Ref = gun:ws_upgrade(Connection, Path, WebSocketOptions),
+
+    %% % @TODO the id must be defined with something different
+    %% pg:join(client, {Host, connection}, self()),
+    
+    %% State = #state{ connection = Connection
+    %%               , websocket = Ref
+    %%               , arguments = Args
+    %%               },
+    %% ?LOG_INFO("~p", [{?MODULE, self(), init, Args, State}]),
+    %% {ok, State}.
+    {stop, {invalid, Args, State}}.
 
 %%--------------------------------------------------------------------
 %% @doc `terminate/2' function terminates the current running process.
@@ -296,17 +420,22 @@ init(Args) ->
       State :: to_be_defined(),
       Return :: ok.
 
-terminate(Reason, #state{ connection = Connection
-                        , target = Target 
-                        } = State) ->
+terminate(Reason, #state{ connection = Connection } = State) ->
     ?LOG_INFO("~p", [{?MODULE, self(), terminate, Reason, State}]),
-
-    % delete the connection from mnesia
-    'nostr@clients':delete_client(#{ target => Target }),
-
     % shutdown the connection
+    terminate_notify_mnesia(State),
     gun:shutdown(Connection),
     ok.
+
+%%--------------------------------------------------------------------
+%% @doc
+%% @end
+%%--------------------------------------------------------------------
+terminate_notify_mnesia(State) ->
+    Target = { State#state.host
+             , State#state.port
+             },
+    'nostr@clients':delete_client(#{ target => Target }).
 
 %%--------------------------------------------------------------------
 %% @doc `handle_cast/2' callback is used to send messages to the
