@@ -32,6 +32,7 @@
 -spec start_link(Args) -> Return when
       Args :: proplists:proplists(),
       Return :: supervisor:startlink_ret().
+
 start_link(Args) ->
     supervisor:start_link(?MODULE, Args).
 
@@ -44,6 +45,7 @@ start_link(Args) ->
       Return :: {ok,{SupFlags,[ChildSpec]}} | ignore,
       SupFlags :: supervisor:sup_flags(),
       ChildSpec :: supervisor:child_spec().
+
 init(Args) ->
     Children = children(Args),
     State = {supervisor(), Children},

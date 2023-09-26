@@ -154,3 +154,66 @@ one place each connection and isolated each elements. I need to
 control a bit the data I'm sharing with this part of the code. Anyway,
 interfaces did not change at all, so, that's cool! See you next week
 for more nostr and erlang coding. ;)
+
+== 2023-09-26: Shortcut_24/08
+
+Starting in October, I will slow down the shortcut sessions and will
+do something a bit different. It seems I'm more productive when I'm
+not in live session (what a surprise). I will record my sessions
+during 6 or 7h hours and then publish them one by one. I will probably
+do the same for my others sessions. Doing lives with only few watchers
+is not really motivating and quite time consuming. So, anyway, let
+start this new shortcut session.
+
+As you can see I started to do some helpers for mnesia, and modify
+few part of the code just before starting this live. I will continue
+to do that. Another reason why I really need to work like 6h00, I
+will redo the whole structure of this solution by using mnesia
+instead of the current method I'm using.
+
+Created a small way to store all certificates in mnesia table. We will
+use it as reference in all other configuration, it will be easier to
+debug.
+
+== 2023-09-26: Shortcut_24/09
+
+Ah! My client does not work anymore! \o/
+
+So, I think I will redo everything from scratch. This code is too
+complex and nip/01 was also deeply modified. Wanna see how to
+destroy a project? :D
+
+Okay. I don't know why I did that. Each things should be totally
+isolated, that the case, but the way to get each information is
+goddamn hard. A graphical interface could perhaps help here :')
+
+So, we have our clients connects. We need to have our users available
+and create a link between them. Renaming those table could help as
+well. We are using a client, so, it should be nostr_client and not
+just nostr.
+
+To me, the connection is simply dropped. I will stop for tonight and
+will clean this mess. To much issues. The main bricks should be
+operational, but the way I'm plugging everything together is
+bad. I should have started by using mnesia at first instead of
+storing everything in Args. Anyway, it's hard to stay focus only
+few hours by week! We will fix that next time :)
+
+== 2023-09-26: Shortcut_24/10
+
+Finally, I continue! The problem is from the routering part, I think
+this part only work when started with the full client process. That's
+not the case here though. Okay, I'm stuck for tonight. I would like to
+add a kind of callback somewhere but this connection is really raw,
+and I have no ways to easily deal with those kind of message, except
+if I forward them to a parser, router or something like that.
+
+I will recreate something easier; next time I will implement a
+simple message store coming from the server: it will be a mnesia
+table. Not sure if it will solve everything, but if I have a
+moment this week-end, I will probably remove half of the current
+structure. Don't worry, it will be recorded! :D
+
+See you soon! ;)
+
+

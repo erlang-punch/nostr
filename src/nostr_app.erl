@@ -111,7 +111,14 @@
       Args :: any(),
       Return :: supervisor:startlink_ret().
 start(_StartType, _StartArgs) ->
+
+    % load certificates from default system path
     public_key:cacerts_load(),
+
+    % start mnesia and initialize the tables
+    nostr_mnesia:start(),
+
+    % start main nostr supervisor
     nostr_sup:start_link().
 
 %%--------------------------------------------------------------------

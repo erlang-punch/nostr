@@ -26,6 +26,13 @@
 %%% nostr_client_connection:stop(Pid).
 %%% '''
 %%%
+%%% == Internal Documentation ==
+%%% 
+%%% Start a connection with a websocket...
+%%%
+%%% ```
+%%% '''
+%%%
 %%% @todo convert this module from `gen_server' to `gen_statem'
 %%% @todo create more examples
 %%% @end
@@ -37,26 +44,27 @@
 -export([start_link/1, start_link/2]).
 -export([stop/1]).
 -export([send_raw/2, send_json/2]).
+-export([get_state/1]).
 -export([init/1, terminate/2]).
 -export([handle_cast/2, handle_call/3, handle_info/2]).
 -include_lib("kernel/include/logger.hrl").
 -include("nostrlib.hrl").
--record(state, { connection     = undefined
-               , websocket      = undefined
-               , subscriptions  = #{}
-               , arguments      = []
-               , http_link      = false
-               , websocket_link = false
-               , port           = 443
-               , host           = undefined
-               , transport      = undefined
-               , path           = undefined
-               , websocket_opts = undefined
-               , tls            = true
-               , tls_opts       = undefined
-               , connection_opts = undefined
-               }).
--type nostr_client_connection_state() :: #state{}.
+-record(?MODULE, { connection     = undefined
+                 , websocket      = undefined
+                 , subscriptions  = #{}
+                 , arguments      = []
+                 , http_link      = false
+                 , websocket_link = false
+                 , port           = 443
+                 , host           = undefined
+                 , transport      = undefined
+                 , path           = undefined
+                 , websocket_opts = undefined
+                 , tls            = true
+                 , tls_opts       = undefined
+                 , connection_opts = undefined
+                 }).
+-type nostr_client_connection_state() :: #?MODULE{}.
 
 %%--------------------------------------------------------------------
 %% @doc `start/2' function creates a `nostr_client_connection'
@@ -146,6 +154,7 @@ start_link(Args) ->
       Args :: proplists:proplists(),
       Opts :: any(),
       Return :: gen_server:start_ret().
+
 start_link(Args, Opts) ->
     gen_server:start_link(?MODULE, Args, Opts).
 
@@ -164,6 +173,7 @@ start_link(Args, Opts) ->
 -spec stop(Pid) -> Return when
       Pid :: pid() | atom(),
       Return :: ok.
+
 stop(Pid) ->
     gen_server:stop(Pid).
 
@@ -186,6 +196,7 @@ stop(Pid) ->
       Pid :: pid() | atom(),
       RawMessage :: iodata(),
       Return :: ok.
+
 send_raw(Pid, RawMessage) ->
     gen_server:cast(Pid, {raw, RawMessage}).
 
@@ -215,6 +226,17 @@ send_json(Pid, Term) ->
     send_raw(Pid, Json).
 
 %%--------------------------------------------------------------------
+%% @doc a way to extract process state, debug only.
+%% @end
+%%--------------------------------------------------------------------
+-spec get_state(Pid) -> Return when
+      Pid :: pid() | atom(),
+      Return :: #?MODULE{}.
+
+get_state(Pid) ->
+    gen_server:call(Pid, {get, state}, 1000).
+
+%%--------------------------------------------------------------------
 %% @doc `init/1' callback create and initizalize the state of a new
 %% `nostr_client_connection' process.
 %%
@@ -236,8 +258,7 @@ send_json(Pid, Term) ->
       State :: nostr_client_connection_state().
 
 init(Args) ->
-    logger:set_module_level(?MODULE, debug),
-    State = #state{},
+    State = #?MODULE{},
     init_host(Args, State).
 
 %%--------------------------------------------------------------------
@@ -247,7 +268,7 @@ init(Args) ->
 init_host(Args, State)->
     case proplists:get_value(host, Args) of
         Host when is_list(Host) -> 
-            NewState = State#state{ host = Host },
+            NewState = State#?MODULE{ host = Host },
             init_port(Args, NewState);
         Host ->
             {stop, {invalid, Host}}
@@ -260,7 +281,7 @@ init_host(Args, State)->
 init_port(Args, State) ->
     case proplists:get_value(port, Args, 443) of
         Port when is_integer(Port) ->
-            NewState = State#state{ port = Port },
+            NewState = State#?MODULE{ port = Port },
             init_transport(Args, NewState);
         Port ->
             {stop, {invalid, Port}}
@@ -273,7 +294,7 @@ init_port(Args, State) ->
 init_transport(Args, State) ->    
     case proplists:get_value(transport, Args, tls) of
         tls ->
-            NewState = State#state{ transport = tls },
+            NewState = State#?MODULE{ transport = tls },
             init_path(Args, NewState);
         Transport ->
             {stop, {invalid, Transport}}
@@ -286,7 +307,7 @@ init_transport(Args, State) ->
 init_path(Args, State) ->
     case proplists:get_value(path, Args, "/") of
         Path when is_list(Path) ->
-            NewState = State#state{ path = Path },
+            NewState = State#?MODULE{ path = Path },
             init_websocket_options(Args, NewState);
         Path ->
             {stop, {invalid, Path}}
@@ -299,7 +320,7 @@ init_path(Args, State) ->
 init_websocket_options(Args, State) ->
     case proplists:get_value(websocket_opts, Args, []) of
         WebsocketOpts when is_list(WebsocketOpts) ->
-            NewState = State#state{ websocket_opts = WebsocketOpts },
+            NewState = State#?MODULE{ websocket_opts = WebsocketOpts },
             init_tls(Args, NewState);
         WebsocketOpts -> 
             {stop, {invalid, WebsocketOpts}}
@@ -322,14 +343,14 @@ init_tls(Args, State) ->
 %% @end
 %%--------------------------------------------------------------------
 init_tls_opts(Args, State) ->
-    CACerts = proplists:get_value(cacerts, Args, public_key:cacerts_get()),
-    TLSOpts = [ {verify, verify_peer}
-              , {cacerts, CACerts}
+    % CACerts = proplists:get_value(cacerts, Args, public_key:cacerts_get()),
+    TLSOpts = [ {verify, verify_none}
+              % , {cacerts, CACerts}
               ],
-    ConnectionOpts = #{ transport => State#state.transport
+    ConnectionOpts = #{ transport => State#?MODULE.transport
                       , tls_opts => TLSOpts
                       },
-    NewState = State#state{ tls_opts = TLSOpts
+    NewState = State#?MODULE{ tls_opts = TLSOpts
                           , connection_opts = ConnectionOpts
                           },
     init_tls_connection(Args, NewState).
@@ -339,11 +360,11 @@ init_tls_opts(Args, State) ->
 %% @end
 %%--------------------------------------------------------------------
 init_tls_connection(Args, State) ->
-    case gun:open( State#state.host
-                 , State#state.port
-                 , State#state.connection_opts) of
+    case gun:open( State#?MODULE.host
+                 , State#?MODULE.port
+                 , State#?MODULE.connection_opts) of
         {ok, Connection} ->
-            NewState = State#state{ connection = Connection },
+            NewState = State#?MODULE{ connection = Connection },
             init_websocket_connection(Args, NewState);
         Elsewise -> 
             Elsewise
@@ -354,13 +375,13 @@ init_tls_connection(Args, State) ->
 %% @end
 %%--------------------------------------------------------------------
 init_websocket_connection(Args, State) ->
-    Ref = gun:ws_upgrade( State#state.connection
-                        , State#state.path
-                        , State#state.websocket_opts),    
-    NewState = State#state{ websocket = Ref
+    Ref = gun:ws_upgrade( State#?MODULE.connection
+                        , State#?MODULE.path
+                        , State#?MODULE.websocket_opts),    
+    NewState = State#?MODULE{ websocket = Ref
                           , arguments = Args
                           },
-    ?LOG_INFO("~p", [{?MODULE, self(), init, Args, State}]),
+    ?LOG_INFO("~p", [{?MODULE, self(), init, Args}]),
     [ apply(Fun, [State]) || Fun <- [fun init_notify_pg/1
                                     ,fun init_notify_mnesia/1 ]],
     {ok, NewState}.
@@ -370,18 +391,18 @@ init_websocket_connection(Args, State) ->
 %% @end
 %%--------------------------------------------------------------------
 init_notify_pg(State) ->
-    pg:join(client, {State#state.host, connection}, self()).
+    pg:join(client, {State#?MODULE.host, connection}, self()).
 
 %%--------------------------------------------------------------------
 %% @doc
 %% @end
 %%--------------------------------------------------------------------
 init_notify_mnesia(State) ->
-    Target = { State#state.host
-             , State#state.port
+    Target = { State#?MODULE.host
+             , State#?MODULE.port
              },
     'nostr@clients':create_client(#{ target => Target 
-                                   , connection => State#state.connection
+                                   , connection => State#?MODULE.connection
                                    , controller => self()
                                    }).
 
@@ -398,7 +419,7 @@ init_connection(Args, State) ->
     %% % @TODO the id must be defined with something different
     %% pg:join(client, {Host, connection}, self()),
     
-    %% State = #state{ connection = Connection
+    %% State = #?MODULE{ connection = Connection
     %%               , websocket = Ref
     %%               , arguments = Args
     %%               },
@@ -420,7 +441,7 @@ init_connection(Args, State) ->
       State :: to_be_defined(),
       Return :: ok.
 
-terminate(Reason, #state{ connection = Connection } = State) ->
+terminate(Reason, #?MODULE{ connection = Connection } = State) ->
     ?LOG_INFO("~p", [{?MODULE, self(), terminate, Reason, State}]),
     % shutdown the connection
     terminate_notify_mnesia(State),
@@ -432,8 +453,8 @@ terminate(Reason, #state{ connection = Connection } = State) ->
 %% @end
 %%--------------------------------------------------------------------
 terminate_notify_mnesia(State) ->
-    Target = { State#state.host
-             , State#state.port
+    Target = { State#?MODULE.host
+             , State#?MODULE.port
              },
     'nostr@clients':delete_client(#{ target => Target }).
 
@@ -451,14 +472,14 @@ terminate_notify_mnesia(State) ->
 
 % send a bitstring to the relay
 handle_cast({raw, Data} = Message
-           ,#state{ connection = Pid, websocket = Ref } = State) ->
-    ?LOG_DEBUG("~p", [{?MODULE, self(), cast, Message, State}]),
+           ,#?MODULE{ connection = Pid, websocket = Ref } = State) ->
+    ?LOG_DEBUG("~p", [{?MODULE, self(), cast, Message}]),
     gun:ws_send(Pid, Ref, {text, Data}),
     {noreply, State};
 
 % wildcard function to remove unknown messages and cleanup the mailbox
 handle_cast(Message, State) ->
-    ?LOG_DEBUG("~p", [{?MODULE, self(), cast, Message, State}]),
+    ?LOG_WARNING("~p", [{?MODULE, self(), cast, Message}]),
     {noreply, State}.
 
 %%--------------------------------------------------------------------
@@ -473,8 +494,11 @@ handle_cast(Message, State) ->
       State :: to_be_defined(),
       Return :: to_be_defined().
 
+handle_call({get, state} = Message, From, State) ->
+    ?LOG_DEBUG("~p", [{?MODULE, self(), call, Message, From}]),
+    {reply, State, State};
 handle_call(Message, From, State) ->
-    ?LOG_DEBUG("~p", [{?MODULE, self(), call, Message, From, State}]),
+    ?LOG_WARNING("~p", [{?MODULE, self(), call, Message, From}]),
     {reply, ok, State}.
 
 %%--------------------------------------------------------------------
@@ -493,28 +517,28 @@ handle_call(Message, From, State) ->
 
 % gun forward us all its messages from the connection
 handle_info({gun_ws,_Pid,_Ref,{text, Data}} = Message, State) ->
-    ?LOG_DEBUG("~p", [{?MODULE, self(), info, Message, State}]),
+    ?LOG_DEBUG("~p", [{?MODULE, self(), info, Message}]),
     websocket_message_router(Data, State),
     {noreply, State};
 
 % websocket wilcard
 handle_info({gun_ws,_Pid,_Ref,_Data} = Message, State) ->
-    ?LOG_DEBUG("~p", [{?MODULE, self(), info, Message, State}]),
+    ?LOG_DEBUG("~p", [{?MODULE, self(), info, Message}]),
     {noreply, State};
 
 % gun module is telling us the websocket is now available
 handle_info({gun_upgrade,_Pid,_Ref,[<<"websocket">>],_Headers} = Message, State) ->
-    ?LOG_DEBUG("~p", [{?MODULE, self(), info, Message, State}]),
-    {noreply, State#state{ websocket_link = true }};
+    ?LOG_DEBUG("~p", [{?MODULE, self(), info, Message}]),
+    {noreply, State#?MODULE{ websocket_link = true }};
 
 % gun module is telling us the connection http is up
 handle_info({gun_up,_,http} = Message, State) ->
-    ?LOG_DEBUG("~p", [{?MODULE, self(), info, Message, State}]),
-    {noreply, State#state{ http_link = true }};
+    ?LOG_DEBUG("~p", [{?MODULE, self(), info, Message}]),
+    {noreply, State#?MODULE{ http_link = true }};
 
 % wildcard
 handle_info(Message, State) ->
-    ?LOG_DEBUG("~p", [{?MODULE, self(), info, Message, State}]),
+    ?LOG_WARNING("~p", [{?MODULE, self(), info, Message}]),
     {noreply, State}.
 
 %%--------------------------------------------------------------------
@@ -531,5 +555,5 @@ handle_info(Message, State) ->
       Return :: any().
 
 websocket_message_router(Message, State) ->
-    Host = proplists:get_value(host, State#state.arguments, undefined),
+    Host = proplists:get_value(host, State#?MODULE.arguments, undefined),
     nostr_client_router:raw_pool(Host, Message).

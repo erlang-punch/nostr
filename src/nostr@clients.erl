@@ -12,7 +12,7 @@
 -export([get_client/1]).
 -export([delete_client/1]).
 -export([list_clients/0, list_clients_by_host/1]).
-
+-include_lib("kernel/include/logger.hrl").
 -record(?MODULE, { target = "" :: {string(), pos_integer()}
                  , controller = undefined :: pid()
                  , connection = undefined :: pid()
@@ -28,6 +28,7 @@
 -spec create_table() -> any().
 
 create_table() ->
+    ?LOG_INFO("create table ~p", [?MODULE]),
     Opts = [{attributes, record_info(fields, ?MODULE)}],
     mnesia:create_table(?MODULE, Opts).
 
