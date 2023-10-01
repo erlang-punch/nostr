@@ -26,6 +26,7 @@
 -spec start_link(Args) -> Return when
       Args :: proplists:proplists(),
       Return :: {ok, pid()}.
+
 start_link(Args) ->
     gen_server:start_link(?MODULE, Args, []).
 
@@ -38,6 +39,7 @@ start_link(Args) ->
 -spec init(Args) -> Return when
       Args :: proplists:proplists(),
       Return :: {ok, #state{ pid :: pid() }}.
+
 init(Args) ->
     Port = proplists:get_value(port, Args, 4000),
     Domain = proplists:get_value(domain, Args, '_'),

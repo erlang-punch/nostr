@@ -51,8 +51,6 @@
 %%% - connected (optional, default `true'): automatically connect 
 %%%   to the relay
 %%%
-%%% ```
-%%%
 %%% These information are then loaded into mnesia table
 %%% `nostr_client_connection' or manually using
 %%% `nostr_client_connection:add/1'.
@@ -544,12 +542,12 @@ connected(_, Message, Data) ->
     {keep_state, Data}.
 
 %%--------------------------------------------------------------------
-%% @doc internal function.
+%% internal function.
 %%
 %% `websocket_message_router/2' is an internal function used to routes
 %% the websocket message to another process.
 %%
-%% @end
+%% 
 %%--------------------------------------------------------------------
 %% -spec websocket_message_router(Message, State) -> Return when
 %%       Message :: iodata(),
