@@ -49,21 +49,25 @@
 -export([handle_cast/2, handle_call/3, handle_info/2]).
 -include_lib("kernel/include/logger.hrl").
 -include_lib("nostrlib/include/nostrlib.hrl").
--record(?MODULE, { process        = undefined :: pid()
-                 , connection     = undefined
-                 , websocket      = undefined
-                 , subscriptions  = #{}
-                 , arguments      = []
-                 , http_link      = false
-                 , websocket_link = false
-                 , port           = 443
-                 , host           = undefined
-                 , transport      = undefined
-                 , path           = undefined
-                 , websocket_opts = undefined
-                 , tls            = true
-                 , tls_opts       = undefined
+-record(?MODULE, { process         = undefined :: pid()
+                 , connection      = undefined
+                 , websocket       = undefined
+                 , subscriptions   = #{}
+                 , arguments       = []
+                 , http_link       = false
+                 , websocket_link  = false
+                 , port            = 443
+                 , host            = undefined
+                 , transport       = undefined
+                 , path            = undefined
+                 , websocket_opts  = undefined
+                 , tls             = true
+                 , tls_opts        = undefined
                  , connection_opts = undefined
+                 % by default we forward to nostr_client_router
+                 % process. creating a registry could be helpful
+                 % here.
+                 , forward         = nostr_client_router
                  }).
 -type nostr_client_connection_state() :: #?MODULE{}.
 
@@ -260,6 +264,14 @@ get_state(Pid) ->
 
 init(Args) ->
     State = #?MODULE{},
+    init_mnesia(Args, State).
+
+%%--------------------------------------------------------------------
+%% @doc Create Mnesia table to store all connection states.
+%% @end
+%%--------------------------------------------------------------------
+init_mnesia(Args, State) ->
+    _ = mnesia:create_table(?MODULE, #?MODULE{}),
     init_host(Args, State).
 
 %%--------------------------------------------------------------------
@@ -380,12 +392,15 @@ init_websocket_connection(Args, State) ->
                         , State#?MODULE.path
                         , State#?MODULE.websocket_opts),    
     NewState = State#?MODULE{ websocket = Ref
-                          , arguments = Args
-                          },
-    ?LOG_INFO("~p", [{?MODULE, self(), init, Args}]),
-    [ apply(Fun, [State]) || Fun <- [fun init_notify_pg/1
-                                    ,fun init_notify_mnesia/1 ]],
-    {ok, NewState}.
+                            , arguments = Args
+                            },
+    init_final(Args, NewState).
+
+init_final(_Args, State) ->
+    Transaction = fun() -> mnesia:write(State) end,
+    mnesia:transaction(Transaction),
+    [ apply(Fun, [State]) || Fun <- [fun init_notify_pg/1] ],
+    {ok, State}.
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -393,20 +408,6 @@ init_websocket_connection(Args, State) ->
 %%--------------------------------------------------------------------
 init_notify_pg(State) ->
     pg:join(client, {State#?MODULE.host, connection}, self()).
-
-%%--------------------------------------------------------------------
-%% @doc
-%% @end
-%%--------------------------------------------------------------------
-init_notify_mnesia(State) ->
-    Target = { State#?MODULE.host
-             , State#?MODULE.port
-             },
-    'nostr@clients':create_client(#{ target => Target 
-                                   , connection => State#?MODULE.connection
-                                   , controller => self()
-                                   }).
-
 
 %%--------------------------------------------------------------------
 %% @doc

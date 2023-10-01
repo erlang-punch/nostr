@@ -258,3 +258,11 @@ users I can spawn it.
 The connection state will be stored in mnesia as well. I don't care
 anymore to store these information in this process. It's hard to debug
 and not particularly useful.
+
+Okay. I need a break. A quick summary, erlang_connection_connection
+will have its own dedicated mnesia table containing all available
+connections. The next step, is to modify the way I'm passing argument,
+I will remove proplists and use maps. I will also convert it to
+gen_statem. The forward key has been added to its record to forward by
+default to the process called nostr_client_router.
+
