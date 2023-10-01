@@ -235,3 +235,8 @@ Cleanup is not over yet, few modifications are required and tests must
 be successful. The next step will be to re-read all files and remove
 what's not necessary but also creating applications files and
 application process for each erlang applications.
+
+== 2023-10-01: Shortcut_24/13
+
+The whole application is working correctly. The last part is to move
+nostrlib. This one will be a dependency for all nostr projects.

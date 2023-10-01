@@ -23,7 +23,7 @@
 -export([start_connection_sup/2, spec_connection_sup/1]).
 -export([start_contacts/2, spec_contacts/1]).
 -export([start_key/2, spec_key/1]).
--include_lib_lib("nostr/include/nostr/include/nostrlib.hrl").
+-include_lib("nostrlib/include/nostrlib.hrl").
 
 %%--------------------------------------------------------------------
 %% @doc

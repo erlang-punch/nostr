@@ -17,7 +17,7 @@
 -export([raw/2, raw_pool/2]).
 -export([handle_cast/2, handle_info/2, handle_call/3]).
 -include_lib("kernel/include/logger.hrl").
--include_lib("nostr/include/nostrlib.hrl").
+-include_lib("nostrlib/include/nostrlib.hrl").
 -record(state, {}).
 -type nostr_client_router_state() :: #state{}.
 

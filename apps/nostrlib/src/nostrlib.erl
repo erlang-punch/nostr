@@ -48,7 +48,7 @@
 -export([check_hex/1, is_hex/1]).
 -export([new_subscription_id/0]).
 -include_lib("eunit/include/eunit.hrl").
--include_lib("nostr/include/nostrlib.hrl").
+-include_lib("nostrlib/include/nostrlib.hrl").
 
 %%--------------------------------------------------------------------
 %% extra-specification to deal with eunit.

@@ -33,7 +33,7 @@
 -export([handle_cast/2, handle_info/2, handle_call/3]).
 -export([call/1, call/2, cast/1]).
 -include_lib("kernel/include/logger.hrl").
--include_lib("nostr/include/nostrlib.hrl").
+-include_lib("nostrlib/include/nostrlib.hrl").
 -record(state, { store = undefined }).
 
 %%--------------------------------------------------------------------

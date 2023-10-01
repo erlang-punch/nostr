@@ -12,7 +12,7 @@
    ,crypto
    ,public_key
    ,mnesia
-   ,nostr
+   ,nostrlib
    ]}
  ,{optional_applications, []}
  ,{env, []}

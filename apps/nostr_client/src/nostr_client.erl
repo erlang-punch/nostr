@@ -48,7 +48,7 @@
 % -export([add_contact/2, add_contact/3, del_contact/2]).
 -include_lib("eunit/include/eunit.hrl").
 -include_lib("kernel/include/logger.hrl").
--include_lib("nostr/include/nostrlib.hrl").
+-include_lib("nostrlib/include/nostrlib.hrl").
 
 % @TODO document types
 -type host() :: bitstring() | string().

@@ -1,24 +1,21 @@
 {application
-,nostr_client
-,[{description,"nostr client in pure Erlang"}
+,nostrlib
+,[{description,"nostr library in pure Erlang"}
  ,{vsn, "0.1.0"}
- ,{registered,[]}
- ,{mod,{nostr_client_app, []}}
+ ,{registered, []}
+ ,{mod,[]}
  ,{applications
   ,[kernel
    ,stdlib
-   ,cowboy
-   ,gun
    ,crypto
    ,public_key
-   ,mnesia
-   ,nostrlib
    ]}
  ,{optional_applications, []}
  ,{env, []}
  ,{modules
-  ,[nostr_client
-   ,nostr_client_app
+  ,[nostrlib
+   ,nostrlib_client
+   ,nostrlib_relay
    ]}
  ,{licenses, ["MIT"]}
  ,{links

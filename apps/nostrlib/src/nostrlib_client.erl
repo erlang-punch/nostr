@@ -11,7 +11,7 @@
 -export([request/2]).
 -export([close/1]).
 -include_lib("eunit/include/eunit.hrl").
--include_lib("nostr/include/nostrlib.hrl").
+-include_lib("nostrlib/include/nostrlib.hrl").
 
 %%--------------------------------------------------------------------
 %% extra specifications for eunit.

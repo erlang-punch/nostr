@@ -8,7 +8,7 @@
 -export([start_link/1]).
 -export([init/1]).
 -export([start_client_sup/1, spec_client_sup/1]).
--include_lib("nostr/include/nostrlib.hrl").
+-include_lib("nostrlib/include/nostrlib.hrl").
 
 %%--------------------------------------------------------------------
 %% @doc

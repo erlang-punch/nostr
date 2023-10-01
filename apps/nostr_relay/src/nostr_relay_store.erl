@@ -10,7 +10,7 @@
 -export([init/1, terminate/2]).
 -export([handle_call/3, handle_cast/2, handle_info/2]).
 -export([add/3, export/1]).
--include_lib("nostr/include/nostrlib.hrl").
+-include_lib("nostrlib/include/nostrlib.hrl").
 -record(state, { ets = undefined }).
 
 %%--------------------------------------------------------------------

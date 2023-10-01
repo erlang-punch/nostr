@@ -82,7 +82,7 @@
 %%%===================================================================
 -module(nostr_relay_store_mnesia).
 -export([init/1, terminate/1, insert/1, lookup/1, delete/1, select/3]).
--include_lib("nostr/include/nostrlib.hrl").
+-include_lib("nostrlib/include/nostrlib.hrl").
 
 % those records should be exported in another external files
 % to be easily reused by other modules present in the project.

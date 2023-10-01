@@ -92,7 +92,7 @@
 -export([handle_cast/2, handle_call/3, handle_info/2]).
 -include_lib("kernel/include/logger.hrl").
 -include_lib("kernel/include/file.hrl").
--include_lib("nostr/include/nostrlib.hrl").
+-include_lib("nostrlib/include/nostrlib.hrl").
 -record(state, { host = undefined :: binary()
                , store_path = undefined :: binary()
                , name :: undefined | binary()

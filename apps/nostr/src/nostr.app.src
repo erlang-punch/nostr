@@ -17,14 +17,12 @@
    ,crypto
    ,public_key
    ,mnesia
+   ,nostrlib
    ]}
  ,{optional_applications, []}
  ,{env, []}
  ,{modules
   ,[nostr_app
-   ,nostrlib
-   ,nostrlib_client
-   ,nostrlib_relay
    ,nostr_client
    ,nostr_relay
    ,nostr_sup

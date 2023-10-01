@@ -22,7 +22,7 @@
 -export([stop/1]).
 -export([get_process/2, get_processes/2]).
 -include_lib("kernel/include/logger.hrl").
--include_lib("nostr/include/nostrlib.hrl").
+-include_lib("nostrlib/include/nostrlib.hrl").
 
 %%--------------------------------------------------------------------
 %% @doc

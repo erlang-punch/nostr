@@ -91,8 +91,8 @@
 -module(nostr_relay_subscription).
 -export([forward/1, forward/2]).
 -export([start_link/1]).
--include_lib("nostr/include/nostrlib.hrl").
 -include_lib("kernel/include/logger.hrl").
+-include_lib("nostrlib/include/nostrlib.hrl").
 -behavior(gen_server).
 -export([init/1, terminate/2]).
 -export([handle_cast/2, handle_info/2, handle_call/3]).

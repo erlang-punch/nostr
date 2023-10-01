@@ -10,7 +10,7 @@
 -export([callback_mode/0]).
 -export([init/1, terminate/3]).
 -export([disconnected/3, connected/3]).
--include_lib("nostr/include/nostrlib.hrl").
+-include_lib("nostrlib/include/nostrlib.hrl").
 -record(state, {}).
 
 %%--------------------------------------------------------------------

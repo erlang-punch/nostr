@@ -12,7 +12,7 @@
 -export([start_relay_listener/2, spec_relay_listener/1]).
 -export([start_relay_store/2, spec_relay_store/1]).
 -export([start_relay_subscription_sup/2, spec_relay_subscription_sup/1]).
--include_lib("nostr/include/nostrlib.hrl").
+-include_lib("nostrlib/include/nostrlib.hrl").
 
 %%--------------------------------------------------------------------
 %% @doc
