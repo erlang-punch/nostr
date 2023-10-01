@@ -266,3 +266,40 @@ I will remove proplists and use maps. I will also convert it to
 gen_statem. The forward key has been added to its record to forward by
 default to the process called nostr_client_router.
 
+== 2023-10-01: Shortcut_24/14
+
+Back again! During lunch I was just testing some configuration. I
+think I'm missing something somewhere. Let do a recap
+
+ - an user can be connected to one or many relay
+ - an user can subscribe to events on one or many relay
+
+perhaps keeping the whole events locally could be a good idea? By
+default, a relay does not send anything, and an user must subcribe to
+a topic to receive events. When doing that, a random identifier is
+generated and relays should and answers with messages tagged with this
+id, if not, this is a notification from the server.
+
+So the a router will do the mapping between the user, the connection
+and the id. Why using a pid if we can use mnesia? The user name is
+then the primary key of nostr_client_user table. The messages are then
+stored in another table, nostr_client_messages, where the key is the
+user id... In the next pomodoro, I will need to create some example
+and demo to try that.
+
+I really want to remove the complete nostr_client implementation and
+start it again from scratch. Next step, convert
+nostr_client_connection in gen_statem. We will do something easier.
+
+== 2023-10-01: Shortcut_24/15
+
+Started to convert nostr_client_connection to gen_statem. Not done
+yet. It will now consist to test it and creates intermediate state. At
+this time only disconnected and connected should be present.
+
+== 2023-10-01: Shortcut_24/16
+
+nostr_client_connection is now using gen_statem behavior and is
+working correctly, at least with few open relays. pg groups should
+also be modified, creating complex group names is not the best thing
+to do. (just a quick modification on pg name).

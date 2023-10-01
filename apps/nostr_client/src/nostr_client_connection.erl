@@ -26,30 +26,64 @@
 %%% nostr_client_connection:stop(Pid).
 %%% '''
 %%%
-%%% == Internal Documentation ==
-%%% 
-%%% Start a connection with a websocket...
+%%% == Connections ==
+%%%
+%%% A connection is created from configuration file. A list of is
+%%% given by the user and then automatically created in mnesia
+%%% database.
 %%%
 %%% ```
+%%% {nostr_client_relays, [
+%%%    #{ host => "relay.nostrss.re" 
+%%%     , connected => false 
+%%%     },
+%%%    #{ host => "relay.n057r.club"
+%%%     , port => 443
+%%%     , tls => true
+%%%     , connected => true 
+%%%     }
+%%% ]}.
 %%% '''
 %%%
-%%% @todo convert this module from `gen_server' to `gen_statem'
+%%% - host (mandatory): hostname of the relay
+%%% - port (optional, default `443'): tcp port of the relay
+%%% - tls (optional, default `true'): connection uses ssl/tls
+%%% - connected (optional, default `true'): automatically connect 
+%%%   to the relay
+%%%
+%%% ```
+%%%
+%%% These information are then loaded into mnesia table
+%%% `nostr_client_connection' or manually using
+%%% `nostr_client_connection:add/1'.
+%%%
+%%% ```
+%%% Relay = #{ host => "relay.nostrss.re" 
+%%%          , connected => true },
+%%% ok = nostr_client_connection:add(Relay).
+%%% '''
+%%%
+%%% nostr_client_connection or `nostr_client_connection_manager' will
+%%% be noticed by this modification and start a new
+%%% `nostr_client_connection' worker running in the state connected or
+%%% disconnected.
+%%%
 %%% @todo create more examples
 %%% @end
 %%%===================================================================
 -module(nostr_client_connection).
 -vsn("0.0.1").
--behaviour(gen_server).
+-behaviour(gen_statem).
 -export([start/1, start/2]).
 -export([start_link/1, start_link/2]).
 -export([stop/1]).
 -export([send_raw/2, send_json/2]).
 -export([get_state/1]).
--export([init/1, terminate/2]).
--export([handle_cast/2, handle_call/3, handle_info/2]).
+-export([callback_mode/0, init/1, terminate/3]).
+-export([connected/3]).
 -include_lib("kernel/include/logger.hrl").
 -include_lib("nostrlib/include/nostrlib.hrl").
--record(?MODULE, { process         = undefined :: pid()
+-record(?MODULE, { process         = undefined
                  , connection      = undefined
                  , websocket       = undefined
                  , subscriptions   = #{}
@@ -115,7 +149,7 @@ start(Args) ->
       Return :: gen_server:start_ret().
 
 start(Args, Opts) ->
-    gen_server:start(?MODULE, Args, Opts).
+    gen_statem:start(?MODULE, Args, Opts).
 
 %%--------------------------------------------------------------------
 %% @doc `start_link/1' function creates a new linked
@@ -161,7 +195,7 @@ start_link(Args) ->
       Return :: gen_server:start_ret().
 
 start_link(Args, Opts) ->
-    gen_server:start_link(?MODULE, Args, Opts).
+    gen_statem:start_link(?MODULE, Args, Opts).
 
 %%--------------------------------------------------------------------
 %% @doc `stop/1' stops the current connection.
@@ -180,7 +214,7 @@ start_link(Args, Opts) ->
       Return :: ok.
 
 stop(Pid) ->
-    gen_server:stop(Pid).
+    gen_statem:stop(Pid).
 
 %%--------------------------------------------------------------------
 %% @doc `send_raw/2' function sends a raw payload to the relay.
@@ -203,7 +237,7 @@ stop(Pid) ->
       Return :: ok.
 
 send_raw(Pid, RawMessage) ->
-    gen_server:cast(Pid, {raw, RawMessage}).
+    gen_statem:cast(Pid, {raw, RawMessage}).
 
 %%--------------------------------------------------------------------
 %% @doc `send_json/2' sends a JSON object to the relay.
@@ -239,7 +273,14 @@ send_json(Pid, Term) ->
       Return :: #?MODULE{}.
 
 get_state(Pid) ->
-    gen_server:call(Pid, {get, state}, 1000).
+    gen_statem:call(Pid, {get, state}, 1000).
+
+%%--------------------------------------------------------------------
+%%
+%%--------------------------------------------------------------------
+-spec callback_mode() -> any().
+
+callback_mode() -> [state_functions, state_enter].
 
 %%--------------------------------------------------------------------
 %% @doc `init/1' callback create and initizalize the state of a new
@@ -271,7 +312,7 @@ init(Args) ->
 %% @end
 %%--------------------------------------------------------------------
 init_mnesia(Args, State) ->
-    _ = mnesia:create_table(?MODULE, #?MODULE{}),
+    _ = mnesia:create_table(?MODULE, [{attributes, record_info(fields, ?MODULE)}]),
     init_host(Args, State).
 
 %%--------------------------------------------------------------------
@@ -281,7 +322,8 @@ init_mnesia(Args, State) ->
 init_host(Args, State)->
     case proplists:get_value(host, Args) of
         Host when is_list(Host) -> 
-            NewState = State#?MODULE{ host = Host },
+            NewState = State#?MODULE{ process = self()
+                                    , host = Host },
             init_port(Args, NewState);
         Host ->
             {stop, {invalid, Host}}
@@ -399,34 +441,21 @@ init_websocket_connection(Args, State) ->
 init_final(_Args, State) ->
     Transaction = fun() -> mnesia:write(State) end,
     mnesia:transaction(Transaction),
-    [ apply(Fun, [State]) || Fun <- [fun init_notify_pg/1] ],
-    {ok, State}.
+    init_notify_pg(),
+    {ok, connected, State}.
 
 %%--------------------------------------------------------------------
 %% @doc
 %% @end
 %%--------------------------------------------------------------------
-init_notify_pg(State) ->
-    pg:join(client, {State#?MODULE.host, connection}, self()).
+init_notify_pg() ->
+    pg:join(nostr_client, ?MODULE, self()).
 
 %%--------------------------------------------------------------------
 %% @doc
 %% @end
 %%--------------------------------------------------------------------
 init_connection(Args, State) ->
-    %% ConnectionOpts = #{},
-    %% {ok, Connection} = gun:open(Host, Port, ConnectionOpts),
-    %% Ref = gun:ws_upgrade(Connection, Path, WebSocketOptions),
-
-    %% % @TODO the id must be defined with something different
-    %% pg:join(client, {Host, connection}, self()),
-    
-    %% State = #?MODULE{ connection = Connection
-    %%               , websocket = Ref
-    %%               , arguments = Args
-    %%               },
-    %% ?LOG_INFO("~p", [{?MODULE, self(), init, Args, State}]),
-    %% {ok, State}.
     {stop, {invalid, Args, State}}.
 
 %%--------------------------------------------------------------------
@@ -438,27 +467,20 @@ init_connection(Args, State) ->
 %% @see gen_server:terminate/2
 %% @end
 %%--------------------------------------------------------------------
--spec terminate(Reason, State) -> Return when
+-spec terminate(Reason, State, Data) -> Return when
       Reason :: term(),
       State :: to_be_defined(),
+      Data :: any(),
       Return :: ok.
 
-terminate(Reason, #?MODULE{ connection = Connection } = State) ->
-    ?LOG_INFO("~p", [{?MODULE, self(), terminate, Reason, State}]),
-    % shutdown the connection
-    terminate_notify_mnesia(State),
+terminate(Reason, connected, #?MODULE{ process = P, connection = Connection } = Data) ->
+    ?LOG_INFO("~p", [{?MODULE, self(), terminate, Reason, Data}]),
+    mnesia:transaction(fun() -> mnesia:delete(?MODULE, P, write) end),
     gun:shutdown(Connection),
+    ok;
+terminate(Reason, _, Data) -> 
+    ?LOG_INFO("~p", [{?MODULE, self(), terminate, Reason, Data}]),
     ok.
-
-%%--------------------------------------------------------------------
-%% @doc
-%% @end
-%%--------------------------------------------------------------------
-terminate_notify_mnesia(State) ->
-    Target = { State#?MODULE.host
-             , State#?MODULE.port
-             },
-    'nostr@clients':delete_client(#{ target => Target }).
 
 %%--------------------------------------------------------------------
 %% @doc `handle_cast/2' callback is used to send messages to the
@@ -467,81 +489,59 @@ terminate_notify_mnesia(State) ->
 %% @see gen_server:handle_cast/2
 %% @end
 %%--------------------------------------------------------------------
--spec handle_cast(Message, State) -> Return when
+-spec connected(EventType, Message, Data) -> Return when
+      EventType :: cast | info,
       Message :: to_be_defined(),
-      State :: to_be_defined(),
+      Data :: to_be_defined(),
       Return :: to_be_defined().
+
+% the connection should be defined here
+connected(enter, _, Data) ->
+    {next_state, connected, Data};
 
 % send a bitstring to the relay
-handle_cast({raw, Data} = Message
-           ,#?MODULE{ connection = Pid, websocket = Ref } = State) ->
+connected(cast, {raw, Raw} = Message
+           ,#?MODULE{ connection = Pid, websocket = Ref } = Data) ->
     ?LOG_DEBUG("~p", [{?MODULE, self(), cast, Message}]),
-    gun:ws_send(Pid, Ref, {text, Data}),
-    {noreply, State};
+    gun:ws_send(Pid, Ref, {text, Raw}),
+    {keep_state, Data};
 
-% wildcard function to remove unknown messages and cleanup the mailbox
-handle_cast(Message, State) ->
-    ?LOG_WARNING("~p", [{?MODULE, self(), cast, Message}]),
-    {noreply, State}.
+% get the complete state of the connection
+connected({call, From} = EventType, {get, state} = Message, Data) ->
+    ?LOG_DEBUG("~p", [{?MODULE, self(), EventType, Message}]),
+    {keep_state, Data, [{reply, From, Data}]};
 
-%%--------------------------------------------------------------------
-%% @doc `handle_call/3' function is not used yet.
-%%
-%% @see gen_server:handle_call/3
-%% @end
-%%--------------------------------------------------------------------
--spec handle_call(Message, From, State) -> Return when
-      Message :: to_be_defined(),
-      From :: gen_server:from(),
-      State :: to_be_defined(),
-      Return :: to_be_defined().
-
-handle_call({get, state} = Message, From, State) ->
-    ?LOG_DEBUG("~p", [{?MODULE, self(), call, Message, From}]),
-    {reply, State, State};
-handle_call(Message, From, State) ->
-    ?LOG_WARNING("~p", [{?MODULE, self(), call, Message, From}]),
-    {reply, ok, State}.
-
-%%--------------------------------------------------------------------
-%% @doc `handle_info/2' is a callback receiving messages coming from
-%% the `gun' websocket.
-%%
-%% At this time, only websocket messages are supported.
-%%
-%% @see gen_server:handle_info/2
-%% @end
-%%--------------------------------------------------------------------
--spec handle_info(Message, State) -> Return when
-      Message :: to_be_defined(),
-      State :: to_be_defined(),
-      Return :: to_be_defined().
-
-% gun forward us all its messages from the connection
-handle_info({gun_ws,_Pid,_Ref,{text, Data}} = Message, State) ->
+connected(info, {gun_ws,_Pid,_Ref,{text, Data}} = Message, Data) ->
     ?LOG_DEBUG("~p", [{?MODULE, self(), info, Message}]),
-    websocket_message_router(Data, State),
-    {noreply, State};
+    % websocket_message_router(Data, Data),
+    {keep_state, Data};
 
-% websocket wilcard
-handle_info({gun_ws,_Pid,_Ref,_Data} = Message, State) ->
+connected(info, {gun_ws,_Pid,_Ref,_Data} = Message, Data) ->
     ?LOG_DEBUG("~p", [{?MODULE, self(), info, Message}]),
-    {noreply, State};
+    {keep_state, Data};
 
 % gun module is telling us the websocket is now available
-handle_info({gun_upgrade,_Pid,_Ref,[<<"websocket">>],_Headers} = Message, State) ->
+connected(info, {gun_upgrade,_Pid,_Ref,[<<"websocket">>],_Headers} = Message, Data) ->
     ?LOG_DEBUG("~p", [{?MODULE, self(), info, Message}]),
-    {noreply, State#?MODULE{ websocket_link = true }};
+    {keep_state, Data#?MODULE{ websocket_link = true }};
 
 % gun module is telling us the connection http is up
-handle_info({gun_up,_,http} = Message, State) ->
+connected(info, {gun_up,_,http} = Message, Data) ->
     ?LOG_DEBUG("~p", [{?MODULE, self(), info, Message}]),
-    {noreply, State#?MODULE{ http_link = true }};
+    {keep_state, Data#?MODULE{ http_link = true }};
+
+% when an error occurs, just shutdown the connection
+connected(info, {gun_error, _, _, _Reason}, Data) ->
+    {stop, normal, Data};
+
+% when the websocket is closed, we stop the process
+connected(info, {gun_down, _, ws, closed, _} = _Message, Data) ->
+    {stop, normal, Data};
 
 % wildcard
-handle_info(Message, State) ->
+connected(_, Message, Data) ->
     ?LOG_WARNING("~p", [{?MODULE, self(), info, Message}]),
-    {noreply, State}.
+    {keep_state, Data}.
 
 %%--------------------------------------------------------------------
 %% @doc internal function.
@@ -551,11 +551,11 @@ handle_info(Message, State) ->
 %%
 %% @end
 %%--------------------------------------------------------------------
--spec websocket_message_router(Message, State) -> Return when
-      Message :: iodata(),
-      State :: nostr_client_connection_state(),
-      Return :: any().
+%% -spec websocket_message_router(Message, State) -> Return when
+%%       Message :: iodata(),
+%%       State :: nostr_client_connection_state(),
+%%       Return :: any().
 
-websocket_message_router(Message, State) ->
-    Host = proplists:get_value(host, State#?MODULE.arguments, undefined),
-    nostr_client_router:raw_pool(Host, Message).
+%% websocket_message_router(Message, State) ->
+%%     Host = proplists:get_value(host, State#?MODULE.arguments, undefined),
+%%     nostr_client_router:raw_pool(Host, Message).

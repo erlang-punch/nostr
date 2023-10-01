@@ -46,6 +46,10 @@ children(Args) ->
     [ spec_relay_listener(Args)
     , spec_relay_store(Args)
     , spec_relay_subscription_sup(Args)
+    , #{ id => pg
+       , start => {pg, start_link, [nostr_relay]}
+       , type => worker
+       }
     ].
 
 %%--------------------------------------------------------------------

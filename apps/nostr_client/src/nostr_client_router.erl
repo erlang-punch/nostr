@@ -6,6 +6,9 @@
 %%% these actions in a pool of these process tagged with `pg' with the
 %%% tag `{ClientId, router}'.
 %%%
+%%% ```
+%%% '''
+%%%
 %%% @end
 %%%===================================================================
 -module(nostr_client_router).
@@ -18,8 +21,9 @@
 -export([handle_cast/2, handle_info/2, handle_call/3]).
 -include_lib("kernel/include/logger.hrl").
 -include_lib("nostrlib/include/nostrlib.hrl").
--record(state, {}).
--type nostr_client_router_state() :: #state{}.
+-record(?MODULE, { source = undefined
+                 , content = undefined }).
+-type ?MODULE() :: #?MODULE{}.
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -69,13 +73,14 @@ raw_pool(ClientId, Data) ->
 -spec init(Args) -> Return when
       Args :: proplists:proplists(),
       Return :: {ok, State} | {stop, to_be_defined()},
-      State :: nostr_client_router_state().
+      State :: ?MODULE().
+      
 init(Args) ->
     % @TODO remove debug mode
     logger:set_module_level(?MODULE, debug),
     Host = proplists:get_value(host, Args, undefined),
     pg:join(client, {Host, router}, self()),
-    {ok, #state{}}.
+    {ok, #?MODULE{}}.
 
 %%--------------------------------------------------------------------
 %% @doc

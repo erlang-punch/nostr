@@ -16,6 +16,7 @@
 start(_StartType, _StartArgs) ->
     % @todo to modify. the current structure is not adapted
     % for an erlang release.
+    pg:start(nostr_client),
     nostr_client_sup:start_link([]).
 
 %%--------------------------------------------------------------------

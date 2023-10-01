@@ -62,6 +62,10 @@ children(Args) ->
     , spec_connection_sup(Args)
     , spec_contacts(Args)
     , spec_key(Args)
+    , #{ id => pg
+       , start => {pg, start_link, [nostr_client]}
+       , type => worker
+       }
     ].
 
 %%--------------------------------------------------------------------
