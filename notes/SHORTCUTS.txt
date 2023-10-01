@@ -239,4 +239,22 @@ application process for each erlang applications.
 == 2023-10-01: Shortcut_24/13
 
 The whole application is working correctly. The last part is to move
-nostrlib. This one will be a dependency for all nostr projects.
+nostrlib. This one will be a dependency for all nostr projects. It
+looks good. The tests are okay (but will need to be modified as well
+in a near future), and the applications are "working". Let works on
+the real stuff now.
+
+When an user want to connect to a server, he will use a client. This
+client will be in charge of the connection to the relay and to forward
+the events in the right format to the user. That's basically a
+router. To avoid all the complexity right now, we will just create a
+queue where all events from the relay will be stored using ETS or
+mnesia.
+
+Note: I will also change my way of doing this application, every part
+MUST be independant and isolated. If I want my own connection with
+users I can spawn it.
+
+The connection state will be stored in mnesia as well. I don't care
+anymore to store these information in this process. It's hard to debug
+and not particularly useful.
