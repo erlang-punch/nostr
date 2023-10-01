@@ -1,0 +1,29 @@
+{application
+,nostr_client
+,[{description,"nostr client in pure Erlang"}
+ ,{vsn, "0.1.0"}
+ ,{registered,[]}
+ ,{mod,{nostr_client_app, []}}
+ ,{applications
+  ,[kernel
+   ,stdlib
+   ,cowboy
+   ,gun
+   ,crypto
+   ,public_key
+   ,mnesia
+   ,nostr
+   ]}
+ ,{optional_applications, []}
+ ,{env, []}
+ ,{modules
+  ,[nostr_client
+   ,nostr_client_app
+   ]}
+ ,{licenses, ["MIT"]}
+ ,{links
+  ,["https://erlang-punch.com"
+   ,"https://github.com/erlang-punch/nostr"
+   ]}
+ ]
+}.

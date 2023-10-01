@@ -13,7 +13,7 @@
 -export([connection_with_options/0, connection_with_options/1]).
 -export([contact_list/0, contact_list/1]).
 -include_lib("common_test/include/ct.hrl").
--include("nostrlib.hrl").
+-include_lib("nostr/include/nostrlib.hrl").
 -spec suite() -> any().
 -spec init_per_suite(any()) -> any().
 -spec end_per_suite(any()) -> any().

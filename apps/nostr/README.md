@@ -1,0 +1,1 @@
+# Nostr Main Application Controller

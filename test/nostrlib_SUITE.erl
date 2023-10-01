@@ -24,7 +24,7 @@
 -export([decode_subscription/0, decode_subscription/1]).
 -export([decode_eose/0, decode_eose/1]).
 -include_lib("common_test/include/ct.hrl").
--include("nostrlib.hrl").
+-include_lib("nostr/include/nostrlib.hrl").
 
 -spec suite() -> any().
 -spec init_per_suite(any()) -> any().

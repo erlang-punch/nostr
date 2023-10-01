@@ -216,4 +216,22 @@ structure. Don't worry, it will be recorded! :D
 
 See you soon! ;)
 
+== 2023-10-01: Shortcut_24/11
 
+Hi folks! Today, we will do some cleanup. The room is messy, I need to
+clean my mess. The idea is to do a big review by myself, convert this
+application into a release, and document stuff. It will be a long
+process and it will probably take the whole day. Let begins with
+the application conversion to release.
+
+So, in ~25minutes we converted nostr monolytic application to an
+Erlang releases. Now, nostr, nostr_client, nostr_relay and bech32 are
+isolated application. It will be easier to export and reuse them in
+other projects. 
+
+== 2023-10-01: Shortcut_24/12
+
+Cleanup is not over yet, few modifications are required and tests must
+be successful. The next step will be to re-read all files and remove
+what's not necessary but also creating applications files and
+application process for each erlang applications.

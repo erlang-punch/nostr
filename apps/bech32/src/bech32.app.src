@@ -1,0 +1,10 @@
+{application, bech32,
+ [{description, "Bech32 and Segwit Implementation in pure Erlang"}
+ ,{vsn, "0.1.0"}
+ ,{registered, []}
+ ,{applications, [kernel, stdlib, crypto]}
+ ,{env, []}
+ ,{modules, []}
+ ,{licenses, ["MIT"]}
+ ,{links, []}
+ ]}.

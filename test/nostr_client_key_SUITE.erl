@@ -11,7 +11,7 @@
 -export([groups/0, all/0]).
 -export([simple/0, simple/1]).
 -include_lib("common_test/include/ct.hrl").
--include("nostrlib.hrl").
+-include_lib("nostr/include/nostrlib.hrl").
 -spec suite() -> any().
 -spec init_per_suite(any()) -> any().
 -spec end_per_suite(any()) -> any().
