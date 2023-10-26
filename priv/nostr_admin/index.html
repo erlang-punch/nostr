@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en-US">
+  <head>
+    <title>Nostr</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width" />
+    <link rel="stylesheet" href="./css/pure.min.css" />
+    <script type="module" src="./js/mithril.js"></script>
+  </head>
+  <body class="">
+    <div class="">
+      
+      <header class="pure-g">
+        <nav class="pure-u-1">
+          <a class="pure-button pure-button-primary" href="#/" title="Dashboard">Dashboard</a>
+          <a class="pure-button pure-button-primary" href="#!/clients" title="Clients">Clients</a>
+          <a class="pure-button pure-button-primary" href="#!/relays" title="Relays">Relays</a>
+          <a class="pure-button pure-button-primary" href="#!/stats" title="Statst">Stats</a>
+          <a class="pure-button pure-button-primary" href="#!/configuration" title="Configuration">Configuration</a>
+        </nav>
+        <nav id="submenu" class="f6 fw6 ttu tracked"></nav>
+      </header>
+      
+      <!-- -->
+      <div class="pure-g">
+        <div class="" id="application"></div>
+      </div>
+    </div>
+
+    <!-- -->
+    <footer class="bottom-1 bg-white-50">
+      <small class="f6 db tc">© 2023 <b class="ttu">Erlang Punch</b>., All Rights Reserved</small>
+      <div class="tc mt3">
+        <a href="#!/language/" title="Language" class="f6 dib ph2 link mid-gray dim">Language</a>
+        <a href="#!/terms/"    title="Terms" class="f6 dib ph2 link mid-gray dim">Terms of Use</a>
+        <a href="#!/privacy/"  title="Privacy" class="f6 dib ph2 link mid-gray dim">Privacy</a>
+      </div>
+    </footer>
+
+    
+    <script type="module" src="js/app.js"></script>
+  </body>
+</html>
