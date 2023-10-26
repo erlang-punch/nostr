@@ -1,0 +1,39 @@
+{application
+,nostr
+,[{description,"nostr client and relay protocol implementation in pure Erlang"}
+ ,{vsn, "0.1.0"}
+ ,{registered
+  ,[nostr_sup
+   ,nostr_manager_sup
+   ,nostr_manager_relay_sup
+   ,nostr_manager_client_sup
+   ]}
+ ,{mod,{nostr_app, []}}
+ ,{applications
+  ,[kernel
+   ,stdlib
+   ,cowboy
+   ,gun
+   ,crypto
+   ,public_key
+   ,mnesia
+   ,nostrlib
+   ]}
+ ,{optional_applications, []}
+ ,{env, []}
+ ,{modules
+  ,[nostr_app
+   ,nostr_client
+   ,nostr_relay
+   ,nostr_sup
+   ,nostr_manager_sup
+   ,nostr_manager_relay_sup
+   ,nostr_manager_client_sup
+   ]}
+ ,{licenses, ["MIT"]}
+ ,{links
+  ,["https://erlang-punch.com"
+   ,"https://github.com/erlang-punch/nostr"
+   ]}
+ ]
+}.

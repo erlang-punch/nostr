@@ -1,0 +1,29 @@
+{ application
+, nostr_relay
+, [ {description,"nostr relay in pure Erlang"}
+  , {vsn, "0.1.0"}
+  , {registered, []}
+  , {mod, {nostr_relay_app, []}}
+  , {applications
+    , [ kernel
+      , stdlib
+      , cowboy
+      , gun
+      , crypto
+      , public_key
+      , mnesia
+      , nostrlib
+      ]}
+  , {optional_applications, []}
+  , {env, []}
+  , {modules
+    , [ nostr_relay
+      , nostr_relay_app
+      ]}
+  , {licenses, ["MIT"]}
+  , {links
+    , [ "https://erlang-punch.com"
+      , "https://github.com/erlang-punch/nostr"
+      ]}
+  ]
+}.

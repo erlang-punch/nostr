@@ -4,15 +4,16 @@ title: Notes and Comments
 
 This part of the repository is dedicated for the notes and comments
 from the developers, to explain the "why" they created something and
-what was their ideas. 
+what was their ideas.
 
 **All articles MUST be licensed under [CC
 BY-NC-ND](https://creativecommons.org/licenses/by-nc-nd/4.0/)**.
 
 | Date       | Title                       | Author | Notes |
 |------------|-----------------------------|--------|-------|
-| 2023-03-09 | [Nostr NIP/01 in Pure Erlang](0005-implementing-nip-01-standard-in-pure-erlang) | Mathieu Kerjouan | R25
-| 2023-03-09 | [Schnorr signature scheme in Erlang](0004-schnorr-signature-scheme-in-erlang) | Mathieu Kerjouan | R25
+| -          | [NIP/02 support](0006-nip-02-support) | Mathieu Kerjouan | R25
+| 2023-03-10 | [Nostr NIP/01 in Pure Erlang](0005-implementing-nip-01-standard-in-pure-erlang) | Mathieu Kerjouan | R25
+| 2023-03-10 | [Schnorr signature scheme in Erlang](0004-schnorr-signature-scheme-in-erlang) | Mathieu Kerjouan | R25
 | 2023-02-25 | [Implementing nostr Client in Erlang](0003-implementing-nostr-client-in-erlang) | Mathieu Kerjouan | R25
 | 2023-02-10 | [From Erlang to nostr](0002-from-erlang-to-nostr) | Mathieu Kerjouan | R25
 | 2023-02-10 | [Create Github Actions Workflow](0001-create-github-actions-workflow) | Mathieu Kerjouan | R25

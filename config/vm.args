@@ -1,0 +1,4 @@
+-sname nostr
+-setcookie random_cookie
++K true
++A30

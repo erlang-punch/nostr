@@ -1,0 +1,26 @@
+{application
+,nostrlib
+,[{description,"nostr library in pure Erlang"}
+ ,{vsn, "0.1.0"}
+ ,{registered, []}
+ ,{mod,[]}
+ ,{applications
+  ,[kernel
+   ,stdlib
+   ,crypto
+   ,public_key
+   ]}
+ ,{optional_applications, []}
+ ,{env, []}
+ ,{modules
+  ,[nostrlib
+   ,nostrlib_client
+   ,nostrlib_relay
+   ]}
+ ,{licenses, ["MIT"]}
+ ,{links
+  ,["https://erlang-punch.com"
+   ,"https://github.com/erlang-punch/nostr"
+   ]}
+ ]
+}.

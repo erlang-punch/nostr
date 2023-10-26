@@ -1,0 +1,305 @@
+= SHORTCUTS SESSION
+
+== 2023-09-05: Shortcut_24/01
+
+Hey everyone! First shortcut of this new season. Sorry for the delay,
+I was playing with another project but now is the time to code for
+Erlang Punch and nostr I did only few small modification during the
+past three months. I merged bech32 module (we'll see that in another
+shortcut) and did some cleanup  but the project did not change a
+lot. At least, we are still stuck on the same issues. Okay, let's
+do that!
+
+We were working on nip/05, I think had something that work, but we
+will need to check that. Another project could be cool, something we
+were talking on for many months: creating the message router. Oh!
+I remember now! The link between nip/05 and the database was not
+done. Do I want to work on that right now? Not sure. I don't even
+remember how this part is working. Let start our pomodoro session.
+No more talk ;)
+
+Okay! We need a way to list active clients but it leads to...
+database, in particular mnesia. Well, I feel hot to do some
+mnesia! :)
+
+So; first pomodoro done. I only updated some documentation and
+started to play with mnesia. I don't really know how to deal
+with the connection at this time. In fact, if we are starting
+to use mnesia... Perhaps we should use it everywhere. I should
+dissociate clients and users.
+
+A client is an active connection to a server, and we should only have
+one perhaps more if more users need to connect on it.
+
+An user is using a client (so the connection) to receive and share
+their information. In this case, we should have something like that:
+
+ 1. a new client is started, a client abstracts the connection
+    between an user and the server.
+
+ 2. a new user want to use the connection/client, then it will share
+    the same connection if it already exists or create it if not
+    present.
+
+ 3. It become an active user.
+
+Let works on the second part.
+
+== 2023-09-05: Shortcut_24/02
+
+Okay! That's the last one for tonight. It's hot out there, and it's
+hard to think with this kind of weather. Adding mnesia is not a small
+task and it will impact a lot of the implementation but based on the
+big modification in many NIP, in particular NIP/01 and NIP/25, I will
+need to use mnesia one day or another. What we did during these
+shortcuts? Well... Documentation and a first step in the interface to
+store clients state. That's a good thing for the first one.
+
+ + created nostr@clients module
+ + created interface to create, list and delete clients
+ ~ added documentation
+ ~ did some test to remember how this application was
+   working...
+
+See you next time friends; I need to drink some water. :')
+
+== 2023-09-12: Shortcut_24/03
+
+Hey everyone! Ready for a new shortcut session? Let's continue
+working on nostr. Today, I was thinking on the current structure
+of the application and all the mess I did during the last
+shortcuts. I think I will merge all the previous branches
+during the week and restart from a fresh branch. Anyway, last week
+we were working with mnesia, we'll continue that for tonight.
+
+  nostr_client_connection:start([{host, "nostr.sidnlabs.nl"}, {port, 443}]).
+
+Okay, first session's over. When a new connection is created, its information
+is now stored in mnesia (but also in process group). We don't want
+to deal with the full id made of host, port, protocol (tls) and path, but
+with want something to filter these elements from the database. This will
+be the goal of the function `nostr@clients:get_client_by_host/1`.
+
+I still think using process group and supervisor to store information could
+be a good idea but it requires too much efforts. I will also probably
+change the way arguments are passed. Instead of using proplists, I will
+use some maps, better to do pattern matching, and more flexible.
+
+ + can now list client
+ + when connected, client is added in mnesia
+ + when stopped, client is removed from mnesia
+ ~ get client by hostname.
+ ! change all datastructure used to pass argument
+
+== 2023-09-12: Shortcut_24/04
+
+I will stop for tonight. ~1h dedicated is enough. If I have
+more time this week-end, perhaps doing a long session could
+help me to fix all the mess I did :)
+
+Anyway, we have now the function to get clients by their
+hostname after a - very - long fight with match pattern,
+a powerful feature, but hard to master. Next time, I use
+`etf:fun2ms` to create a match pattern based on function!
+
+ + create list_client_by_host/1
+ ? the data structure used is not flexible enough.
+ ! this module is dirty, a clean up is needed.
+
+Well, it was a short live session, but I am also working
+on other projects, and allocating 1h is already a bit
+hard. If you are interested, I recently created an interface
+using NIF to manage cozodb. To be honest, that's a really
+nice project, and I will (perhaps) add it in nostr to
+store data instead of mnesia. We'll see!
+
+See you Friday for another paper session, if not, see
+you next Tuesday! ;)
+
+== 2023-09-19: Shortcut_24/05
+
+We start this session earlier. Let continue to work on nostr! In this
+session I clean up nostr_client_connection module I create months ago.
+It was dirty and only for a PoC. A good program -- in my point of view
+-- is made of small functions connected together, you can eventually
+test on demand. Each steps are isolated and some errors can be
+correctly designed. One function should only return one good result,
+or at least not an infinity of results.
+
+The state of the process should have only important information, but
+in this case, I think I will play hard and store everything in it. The
+goal is to have something working, not to optimize. If removing some
+elements of the state is required, then we will do that in another
+coding session.
+
+== 2023-09-19: Shortcut_24/06
+
+I will continue to clean up this code in this pomodoro. Every steps
+are acting like a whole pipeline during the initialization
+phase. Types are partially checked during this phase. notify functions
+could be exported in another module to reuse this part of the code in
+other modules. Only TLS connection is now supported, init_connection
+function will need to be uncommented and updated like other functions.
+
+clients are currently not removed from mnesia. It needs to be
+uncommented as well. I think a delete notification can be created.
+
+== 2023-09-19: Shortcut_24/07
+
+Let continue! I will extend this session a little bit to understand
+what happens to the host field in the state. It looks better! So, this
+is over for tonight. We cleaned up nostr_client_client connection, but
+this is not done yet. What's the idea behind that? Still put in its
+one place each connection and isolated each elements. I need to
+control a bit the data I'm sharing with this part of the code. Anyway,
+interfaces did not change at all, so, that's cool! See you next week
+for more nostr and erlang coding. ;)
+
+== 2023-09-26: Shortcut_24/08
+
+Starting in October, I will slow down the shortcut sessions and will
+do something a bit different. It seems I'm more productive when I'm
+not in live session (what a surprise). I will record my sessions
+during 6 or 7h hours and then publish them one by one. I will probably
+do the same for my others sessions. Doing lives with only few watchers
+is not really motivating and quite time consuming. So, anyway, let
+start this new shortcut session.
+
+As you can see I started to do some helpers for mnesia, and modify
+few part of the code just before starting this live. I will continue
+to do that. Another reason why I really need to work like 6h00, I
+will redo the whole structure of this solution by using mnesia
+instead of the current method I'm using.
+
+Created a small way to store all certificates in mnesia table. We will
+use it as reference in all other configuration, it will be easier to
+debug.
+
+== 2023-09-26: Shortcut_24/09
+
+Ah! My client does not work anymore! \o/
+
+So, I think I will redo everything from scratch. This code is too
+complex and nip/01 was also deeply modified. Wanna see how to
+destroy a project? :D
+
+Okay. I don't know why I did that. Each things should be totally
+isolated, that the case, but the way to get each information is
+goddamn hard. A graphical interface could perhaps help here :')
+
+So, we have our clients connects. We need to have our users available
+and create a link between them. Renaming those table could help as
+well. We are using a client, so, it should be nostr_client and not
+just nostr.
+
+To me, the connection is simply dropped. I will stop for tonight and
+will clean this mess. To much issues. The main bricks should be
+operational, but the way I'm plugging everything together is
+bad. I should have started by using mnesia at first instead of
+storing everything in Args. Anyway, it's hard to stay focus only
+few hours by week! We will fix that next time :)
+
+== 2023-09-26: Shortcut_24/10
+
+Finally, I continue! The problem is from the routering part, I think
+this part only work when started with the full client process. That's
+not the case here though. Okay, I'm stuck for tonight. I would like to
+add a kind of callback somewhere but this connection is really raw,
+and I have no ways to easily deal with those kind of message, except
+if I forward them to a parser, router or something like that.
+
+I will recreate something easier; next time I will implement a
+simple message store coming from the server: it will be a mnesia
+table. Not sure if it will solve everything, but if I have a
+moment this week-end, I will probably remove half of the current
+structure. Don't worry, it will be recorded! :D
+
+See you soon! ;)
+
+== 2023-10-01: Shortcut_24/11
+
+Hi folks! Today, we will do some cleanup. The room is messy, I need to
+clean my mess. The idea is to do a big review by myself, convert this
+application into a release, and document stuff. It will be a long
+process and it will probably take the whole day. Let begins with
+the application conversion to release.
+
+So, in ~25minutes we converted nostr monolytic application to an
+Erlang releases. Now, nostr, nostr_client, nostr_relay and bech32 are
+isolated application. It will be easier to export and reuse them in
+other projects. 
+
+== 2023-10-01: Shortcut_24/12
+
+Cleanup is not over yet, few modifications are required and tests must
+be successful. The next step will be to re-read all files and remove
+what's not necessary but also creating applications files and
+application process for each erlang applications.
+
+== 2023-10-01: Shortcut_24/13
+
+The whole application is working correctly. The last part is to move
+nostrlib. This one will be a dependency for all nostr projects. It
+looks good. The tests are okay (but will need to be modified as well
+in a near future), and the applications are "working". Let works on
+the real stuff now.
+
+When an user want to connect to a server, he will use a client. This
+client will be in charge of the connection to the relay and to forward
+the events in the right format to the user. That's basically a
+router. To avoid all the complexity right now, we will just create a
+queue where all events from the relay will be stored using ETS or
+mnesia.
+
+Note: I will also change my way of doing this application, every part
+MUST be independant and isolated. If I want my own connection with
+users I can spawn it.
+
+The connection state will be stored in mnesia as well. I don't care
+anymore to store these information in this process. It's hard to debug
+and not particularly useful.
+
+Okay. I need a break. A quick summary, erlang_connection_connection
+will have its own dedicated mnesia table containing all available
+connections. The next step, is to modify the way I'm passing argument,
+I will remove proplists and use maps. I will also convert it to
+gen_statem. The forward key has been added to its record to forward by
+default to the process called nostr_client_router.
+
+== 2023-10-01: Shortcut_24/14
+
+Back again! During lunch I was just testing some configuration. I
+think I'm missing something somewhere. Let do a recap
+
+ - an user can be connected to one or many relay
+ - an user can subscribe to events on one or many relay
+
+perhaps keeping the whole events locally could be a good idea? By
+default, a relay does not send anything, and an user must subcribe to
+a topic to receive events. When doing that, a random identifier is
+generated and relays should and answers with messages tagged with this
+id, if not, this is a notification from the server.
+
+So the a router will do the mapping between the user, the connection
+and the id. Why using a pid if we can use mnesia? The user name is
+then the primary key of nostr_client_user table. The messages are then
+stored in another table, nostr_client_messages, where the key is the
+user id... In the next pomodoro, I will need to create some example
+and demo to try that.
+
+I really want to remove the complete nostr_client implementation and
+start it again from scratch. Next step, convert
+nostr_client_connection in gen_statem. We will do something easier.
+
+== 2023-10-01: Shortcut_24/15
+
+Started to convert nostr_client_connection to gen_statem. Not done
+yet. It will now consist to test it and creates intermediate state. At
+this time only disconnected and connected should be present.
+
+== 2023-10-01: Shortcut_24/16
+
+nostr_client_connection is now using gen_statem behavior and is
+working correctly, at least with few open relays. pg groups should
+also be modified, creating complex group names is not the best thing
+to do. (just a quick modification on pg name).
