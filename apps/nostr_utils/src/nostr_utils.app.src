@@ -1,0 +1,25 @@
+{ application
+, nostr_utils
+, [ {description,"nostr utils to help debugging"}
+  , {vsn, "0.1.0"}
+  , {registered, []}
+  , {mod, {nostr_utils_app, []}}
+  , {applications
+    , [ kernel
+      , stdlib
+      , cowboy
+      , gun
+      , crypto
+      , public_key
+      , nostrlib
+      ]}
+  , {optional_applications, []}
+  , {env, []}
+  , {modules, []}
+  , {licenses, ["MIT"]}
+  , {links
+    , [ "https://erlang-punch.com"
+      , "https://github.com/erlang-punch/nostr"
+      ]}
+  ]
+}.

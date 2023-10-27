@@ -37,6 +37,7 @@ start() ->
 %% @end
 %%--------------------------------------------------------------------
 -spec start(any()) -> any().
+
 start(Opts) ->
     application:ensure_all_started(ranch),
     application:ensure_all_started(cowboy),
@@ -47,6 +48,7 @@ start(Opts) ->
 %% @end
 %%--------------------------------------------------------------------
 -spec stop(any()) -> any().
+
 stop(Opts) ->
     Port = proplists:get_value(port, Opts),
     cowboy:stop_listener({nostr_relay_listener, Port}),
@@ -61,6 +63,7 @@ stop(Opts) ->
       Name :: atom(),
       Args :: proplists:proplists(),
       Return :: [pid(), ...].
+
 get_processes(Name, Args) ->
     Port = proplists:get_value(port, Args, 4000),
     Domain = proplists:get_value(domain, Args, '_'),
@@ -75,6 +78,7 @@ get_processes(Name, Args) ->
       Args :: proplists:proplists(),
       Return :: {ok, pid()} | {error, Reason},
       Reason :: any().
+
 get_process(Name, Args) ->
     case get_processes(Name, Args) of
         [] -> {error, not_started};

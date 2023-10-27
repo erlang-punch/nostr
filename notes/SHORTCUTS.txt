@@ -303,3 +303,75 @@ nostr_client_connection is now using gen_statem behavior and is
 working correctly, at least with few open relays. pg groups should
 also be modified, creating complex group names is not the best thing
 to do. (just a quick modification on pg name).
+
+== 2023-10-27: Shortcut_24_17
+
+I will work on nostr_relay today, after having reviewed by code on
+nostr_client, I think creating a router for nostr_relay will be
+easier. In fact nostr_relay was just a PoC... So, there are not so
+much features. Let do that.
+
+nostr_relay is using cowboy with websocket support. When a client is
+connecting to it, a new websocket is automatically opened using
+nostr_relay_handler. Because we want to support multi-domain in a near
+future, we will need to modify nostr_relay_listener. This module is
+containing cowboy configuration. As you can see,
+`nostr_relay_listener:routes/1` is configuring the routes, this part
+of the code will need to be modified. Instead of setting a fixed list
+of routes, we will match all routes (and all domains) and we will
+forward them to `nostr_relay_handler` module. This module will be in
+charge of routing the messages received by the client (including
+domain name and so on), and parse them correctly.
+
+Now the question is, where nostr_relay will find these information? In
+Mnesia. Everything will be stored in mnesia and it should be okay for
+the moment.
+
+Another question... how to add support for nips? Well, we will need to
+craft a new dedicated behavior like `nostr_relay_nip`. When a new
+behavior needs to be implemented, we would be able to create something
+like `nostr_relay_nip_01` or `nostr_relay_nip_02`. Anyway, that's not
+the topic for the moment. At first, we need to parse our messages and
+forward/store them somewhere.
+
+`websocket_client` module was created under `nostr_utils` application
+to help create websocket connection from scratch. It will be easier to
+test the server with that. In fact, I don't know if curl is supporting
+websocket now... Not sure. Anyway, here we will have our own small
+websocket to craft request and hack around.
+
+== 2023-10-27: Shortcut_24_18
+
+Let continue to work on this small websocket client. It works locally,
+without TLS but has some issue with secure connection, probably
+because no certificates are passed as arguments. So, it looks "good",
+need to try it a little bit more...
+
+== 2023-10-27: Shortcut_24_19
+
+The small websocket client is looking great, but we need to test it
+more, and check if it works on real world server. It works! We can now
+connect to a server and craft our payloads! Let test with a
+binary. Great, binary messages are not accepted by the remote
+server. We can now create a small websocket server, to test our future
+client. It should be flexible enough to allow some weird configuration
+and input.
+
+It seems we have something, but it does not work yet. We will improve
+it in a second time.
+
+== 2023-10-27: Shortcut_24_20
+
+Let continue to work on our small websocket server. Okay! It looks
+very good. I just need to fix a small annoying bug when we pass an url
+with ending without "/". Great! We can now design our router based on
+the nostr specification, perhaps adding few documentation can help...
+
+A short relecture will be required before continuing this code, and I
+need a longer break, tea time <3, by the way, we should also add few
+simple test to be sure everything is working well.
+
+== 2023-10-27: Shortcut_24_21
+
+Let simulate a router using websocket_client and websocket_server
+modules.
