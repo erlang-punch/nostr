@@ -136,6 +136,11 @@ encode(#eose{} = EOSE, Opts) ->
         {ok, Encoded} -> {ok, to_json(Encoded)};
         Elsewise -> Elsewise
     end;
+encode(#ok{} = OK, Opts) ->
+    case encode_ok(OK, Opts) of
+        {ok, Encoded} -> {ok, to_json(Encoded)};
+        Elsewise -> Elsewise
+    end;
 encode(_, _) ->
     {error, [{encode, unsupported}]}.
 
@@ -657,6 +662,118 @@ encode_tag_test() ->
                  ,encode_tag(#tag{ name = event_id, value = BinKey, params= [<<"wss://relay">>]}, [])
                  )
      ].
+
+%%--------------------------------------------------------------------
+%%
+%%--------------------------------------------------------------------
+encode_ok(#ok{} = OK, Opts) ->
+    encode_ok_event_id(OK, Opts, [<<"OK">>]).
+
+encode_ok_event_id(#ok{ event_id = EventId } = OK, Opts, Buffer) 
+  when is_binary(EventId) andalso size(EventId) =:= 32 ->
+    EncodedEventId = binary_to_hex(EventId),
+    encode_ok_accepted(OK, Opts, Buffer ++ [EncodedEventId]);
+encode_ok_event_id(#ok{ event_id = EventId }, _Opts, Buffer) ->
+    {error, [{event_id, EventId}, {buffer, Buffer}]}.
+
+encode_ok_accepted(#ok{ accepted = Accepted } = OK, Opts, Buffer) 
+  when is_boolean(Accepted) ->
+    encode_ok_prefix(OK, Opts, Buffer ++ [Accepted]);
+encode_ok_accepted(#ok{ accepted = Accepted }, _Opts, Buffer) ->
+    {error, [{accepted, Accepted},{buffer, Buffer}]}.
+
+encode_ok_prefix(#ok{prefix = <<>>, message = <<>>} = OK, Opts, Buffer) ->
+    encoded_ok_final(OK, Opts, Buffer ++ [<<>>]);
+encode_ok_prefix(#ok{prefix = <<"pow">>, message = Message} = OK, Opts, Buffer) 
+  when is_binary(Message) ->
+    FullMessage = <<"pow", ": ", Message/binary>>,
+    encoded_ok_final(OK, Opts, Buffer ++ [FullMessage]);
+encode_ok_prefix(#ok{prefix = <<"duplicate">>, message = Message} = OK, Opts, Buffer) 
+  when is_binary(Message) ->
+    FullMessage = <<"duplicate", ": ", Message/binary>>,
+    encoded_ok_final(OK, Opts, Buffer ++ [FullMessage]);
+encode_ok_prefix(#ok{prefix = <<"blocked">>, message = Message} = OK, Opts, Buffer) 
+  when is_binary(Message) ->
+    FullMessage = <<"blocked", ": ", Message/binary>>,
+    encoded_ok_final(OK, Opts, Buffer ++ [FullMessage]);
+encode_ok_prefix(#ok{prefix = <<"rate-limited">>, message = Message} = OK, Opts, Buffer) 
+  when is_binary(Message) ->
+    FullMessage = <<"rate-limited", ": ", Message/binary>>,
+    encoded_ok_final(OK, Opts, Buffer ++ [FullMessage]);
+encode_ok_prefix(#ok{prefix = <<"invalid">>, message = Message} = OK, Opts, Buffer) 
+  when is_binary(Message) ->
+    FullMessage = <<"invalid", ": ", Message/binary>>,
+    encoded_ok_final(OK, Opts, Buffer ++ [FullMessage]);
+encode_ok_prefix(#ok{prefix = <<"error">>, message = Message} = OK, Opts, Buffer) 
+  when is_binary(Message) ->
+    FullMessage = <<"error", ": ", Message/binary>>,
+    encoded_ok_final(OK, Opts, Buffer ++ [FullMessage]);
+encode_ok_prefix(#ok{ prefix = Prefix, message = Message }, Params, Buffer) ->
+    {error, [{prefix, Prefix},{message, Message},{params, Params}, {buffer, Buffer}]}.
+
+encoded_ok_final(_, _Opts, Buffer) ->
+    {ok, Buffer}.
+
+%%--------------------------------------------------------------------
+%% @hidden
+%%--------------------------------------------------------------------
+-spec encode_ok_test() -> any().
+encode_ok_test() ->
+    EventId = <<1:256>>,
+    HexEventId = nostrlib:binary_to_hex(EventId),
+    [?assertEqual({ok, [<<"OK">>, HexEventId, true, <<>>]}
+                 ,encode_ok(#ok{ event_id = EventId
+                               , accepted = true
+                               }, []))
+    ,?assertEqual({ok, [<<"OK">>, HexEventId, true, <<"pow: difficulty 25>=24">>]}
+                 ,encode_ok(#ok{ event_id = EventId
+                               , accepted = true
+                               , prefix = <<"pow">>
+                               , message = <<"difficulty 25>=24">>
+                               }, []))
+    ,?assertEqual({ok, [<<"OK">>, HexEventId, true, <<"duplicate: already have this event">>]}
+                 ,encode_ok(#ok{ event_id = EventId
+                               , accepted = true
+                               , prefix = <<"duplicate">>
+                               , message = <<"already have this event">>
+                               }, []))
+    ,?assertEqual({ok, [<<"OK">>, HexEventId, false, <<"blocked: you are banned from posting here">>]}
+                 ,encode_ok(#ok{ event_id = EventId
+                               , accepted = false
+                               , prefix = <<"blocked">>
+                               , message = <<"you are banned from posting here">>
+                               }, []))
+    ,?assertEqual({ok, [<<"OK">>, HexEventId, false, <<"blocked: please register your pubkey at https://my-expensive-relay.example.com">>]}
+                 ,encode_ok(#ok{ event_id = EventId
+                               , accepted = false
+                               , prefix = <<"blocked">>
+                               , message = <<"please register your pubkey at https://my-expensive-relay.example.com">>
+                               }, []))
+    ,?assertEqual({ok, [<<"OK">>, HexEventId, false, <<"rate-limited: slow down there chief">>]}
+                 ,encode_ok(#ok{ event_id = EventId
+                               , accepted = false
+                               , prefix = <<"rate-limited">>
+                               , message = <<"slow down there chief">>
+                               }, []))
+    ,?assertEqual({ok, [<<"OK">>, HexEventId, false, <<"invalid: event creation date is too far off from the current time. Is your system clock in sync?">>]}
+                 ,encode_ok(#ok{ event_id = EventId
+                               , accepted = false
+                               , prefix = <<"invalid">>
+                               , message = <<"event creation date is too far off from the current time. Is your system clock in sync?">>
+                               }, []))
+    ,?assertEqual({ok, [<<"OK">>, HexEventId, false, <<"pow: difficulty 26 is less than 30">>]}
+                 ,encode_ok(#ok{ event_id = EventId
+                               , accepted = false
+                               , prefix = <<"pow">>
+                               , message = <<"difficulty 26 is less than 30">>
+                               }, []))
+    ,?assertEqual({ok, [<<"OK">>, HexEventId, false, <<"error: could not connect to the database">>]}
+                 ,encode_ok(#ok{ event_id = EventId
+                               , accepted = false
+                               , prefix = <<"error">>
+                               , message = <<"could not connect to the database">>
+                               }, []))
+    ].
 
 %%--------------------------------------------------------------------
 %% @hidden

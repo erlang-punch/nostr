@@ -374,4 +374,71 @@ simple test to be sure everything is working well.
 == 2023-10-27: Shortcut_24_21
 
 Let simulate a router using websocket_client and websocket_server
-modules.
+modules. Those messages should follow some format or be validated
+somewhere. When we are receiving a message, this message needs to be
+checked using different kind of methods, as a pipeline.
+
+`websocket_server_filter` module will be our first guard, checking if
+the message is correct or not. Don't forget this application will need
+to support many domains and path, so, here, this is just an example of
+usage. Trying to send binary data to the server is not supported and
+returns a NOTICE message to the client. How to represent a pipeline?
+As a list of activated modules from one enabled relay.
+
+   [ {Module1, Param1}
+   , {Module2, Param2}
+   , {Module3, Param3} ]
+
+Where `Module1` is a behavior and MUST return a valid data to pass to
+the next module. 
+
+== 2023-10-27: Shortcut_24_22
+
+Let just, at first, try to parse a request and store it somewhere when
+valid. Okay, it works but I think I will read a bit all the updates
+added to the specification (NIPs), just to be sure I'm not going into
+the wall. For example, nip01 only support kind 0 and 1, a function
+callback could be created like in a "filter" module, saying this
+module only support a restricted list of Kinds. 
+
+  kinds() -> [0,1].
+
+Same could be applied for events. Yeah, it looks like a plugin Elixir,
+but I think I will need to make it less flexible (or not). We'll see
+that later.
+
+== 2023-10-27: Shortcut_24_23
+
+We have an idea how things are working now but what's happening when
+we send client like data? We should probably test that before doing
+more improvement then we will deal with the storage part.
+
+Just played around with mnesia to find the best way to store these
+data. It should be good on the next pomodoro session.
+
+== 2023-10-27: Shortcut_24_24
+
+Let continue to work on mnesia table to store our data. Great! If an
+event is already present in the database, we have now a message saying
+that to the client. That's good, but not enough.
+
+Let redesign this part of the code, it's becoming too complex. 
+
+== 2023-10-27: Shortcut_24_25
+
+Let create some testing there to avoid using the shell. Our code is
+currently working! It's not glorious at all because it lacks lot of
+documentation and test, but at least, we can write an event in the
+database.
+
+OK message specifications are missing, it needs to be created and we
+must have a way to encode/decode it properly.
+
+== 2023-10-27: Shortcut_24_26
+
+Let implement "OK" messages, message sent by relays to clients. The
+encoding part is practically done... So, it looks very good! We have
+implemented a lot of crazy stuff during the latest shortcuts. We will
+continue in another one! :)
+
+

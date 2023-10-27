@@ -16,6 +16,7 @@
 -behavior(gen_server).
 -include_lib("kernel/include/logger.hrl").
 -export([start/2, stop/1]).
+-export([level/1]).
 % gen_server callbacks
 -export([init/1, terminate/2]).
 -export([handle_call/3, handle_cast/2, handle_info/2]).
@@ -29,7 +30,23 @@
 %%--------------------------------------------------------------------
 -spec start(string(), pos_integer()) -> {ok, pid()}.
 start(Host, Port) ->
-    gen_server:start(?MODULE, #{ host => Host, port => Port }, []).
+    State = #{ handlers => [ websocket_server_filter
+                           , websocket_server_nip01 
+                           ]},
+                             
+    gen_server:start(?MODULE, #{ host => Host
+                               , port => Port
+                               , state => State
+                               }
+                    , []).
+
+%%--------------------------------------------------------------------
+%% @doc a wrapper around logger:set_module_level/2
+%% @end
+%%--------------------------------------------------------------------
+-spec level(atom()) -> ok.
+level(Level) ->
+    logger:set_module_level(?MODULE, Level).
 
 %%--------------------------------------------------------------------
 %% @doc stops a listener.
@@ -45,10 +62,10 @@ stop(Pid) ->
 %% @end
 %%--------------------------------------------------------------------
 -spec init(map()) -> {ok, pid()}.
-init(#{ host := _Host, port := Port }) ->
+init(#{ host := _Host, port := Port, state := S }) ->
     application:ensure_all_started(cowboy),
     Dispatch = cowboy_router:compile([
-        {'_', [{"/", ?MODULE, []}]}
+        {'_', [{'_', ?MODULE, S}]}
     ]),
     Opts = [{port, Port}],
     Env = #{ env => #{ dispatch => Dispatch }},
@@ -121,6 +138,9 @@ websocket_init(State) ->
 %% @end
 %%--------------------------------------------------------------------
 -spec websocket_handle(term(), term()) -> {term(), term()}.
+
+websocket_handle(Frame, #{ handlers := [Handler|Handlers] } = State) ->
+    Handler:init(Frame, State#{ handlers => Handlers });
 websocket_handle({text, _Message} = Frame, State) ->
     ?LOG_INFO("~p", [{?MODULE, websocket_handle, Frame, State}]),
     {[Frame], State};

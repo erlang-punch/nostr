@@ -19,7 +19,7 @@
 -module(websocket_client).
 -behavior(gen_server).
 -export([start/1, start/2, start/3, start/4]).
--export([stop/1]).
+-export([stop/1, level/1]).
 -export([send/2]).
 -export([init/1, terminate/2]).
 -export([handle_call/3, handle_cast/2, handle_info/2]).
@@ -81,6 +81,14 @@ start(Host, Port, Path, Opts) ->
 -spec send(pid(), string() | binary()) -> ok.
 send(Pid, Message) ->
     gen_server:cast(Pid, {send, Message}).
+
+%%--------------------------------------------------------------------
+%% @doc a wrapper around logge:set_module_level/2
+%% @end
+%%--------------------------------------------------------------------
+-spec level(atom()) -> ok.
+level(Level) ->
+    logger:set_module_level(?MODULE, Level).
 
 %%--------------------------------------------------------------------
 %% @doc stop a process.

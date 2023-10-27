@@ -163,6 +163,20 @@
 -type decoded_subscription() :: #subscription{ content :: decoded_subscription_content() }.
 
 %%--------------------------------------------------------------------
+%% A decoded "OK" message from relay to clients.
+%%--------------------------------------------------------------------
+-type decoded_ok_event_id() :: decoded_event_id().
+-type decoded_ok_accepted() :: boolean().
+-type decoded_ok_prefix()   :: binary().
+-type decoded_ok_message()  :: binary().
+-record(ok, { event_id = <<>>  :: decoded_ok_event_id()
+            , accepted = false :: decoded_ok_accepted()
+            , prefix   = <<>>  :: decoded_ok_prefix()
+            , message = <<>>   :: decoded_ok_message()
+            }).
+-type decoded_ok() :: #ok{}.
+
+%%--------------------------------------------------------------------
 %% A type representing all decoded messages available.
 %%--------------------------------------------------------------------
 -type decoded_messages() :: decoded_event()
