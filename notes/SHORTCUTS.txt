@@ -496,4 +496,24 @@ flexible to allow encryption by default.
 
 Next, I will need to think about multi-domain and path support. Stored
 these information in a configuration file first (synchronized with
-mnesia) can be a good start.
+mnesia) can be a good start. We'll see that in another shortcut.
+
+== 2023-10-28: Shortcut_24_31
+
+We can now store event in a better way than before, but now, we need
+to deal with subscription. Indeed, users want to have access to some
+events! To be honest, I don't know how to do that right now with this
+new method, let try doing something anyway... Let try to fetch a list
+of events.
+
+Hmm... It was a bit stupid to insert created_at as Erlang datetime
+format, storing it as unix string would have been better there. I
+really think this part of the code will need some TDD, because I
+really don't know how to deal with the logic. What's happening if we
+have a list of valid ids on the server but with a different timestamp
+range?
+
+Okay, we have lot of things to do there. Encoder/decoder for filters
+don't seem correct at first glance for the server part. The code is
+"working" but more is required. All the logic part needs to be
+implemented. We'll see that in another shortcut!

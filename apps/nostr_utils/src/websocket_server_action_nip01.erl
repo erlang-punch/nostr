@@ -8,11 +8,9 @@
 
 -spec init(any(), any()) -> any().
 init(#event{} = Event, _State) ->
-    io:format("debug: test~n"),
     {{next, websocket_server_action_store}, Event};
-init(#request{} = _Request, _State) ->
-    Notice = #notice{ message = <<"Received request!">> },
-    {stop, Notice};
+init(#request{} = Request, _State) ->
+    {{next, websocket_server_action_request}, Request};
 init(#close{} = _Close, _State) ->
     Notice = #notice{ message = <<"Received close!">> },
     {stop, Notice};
