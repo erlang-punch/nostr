@@ -171,7 +171,12 @@ websocket_handle(Frame, State) ->
 %% @doc cowboy callback.
 %% @todo find a way to export this websocket_info to other modules,
 %%       for example, if one module needs to receive one info, it 
-%%       should automatically find it.
+%%       should automatically find it. example:
+%%         websocket_info({ModuleName, Callback}, State) -> ...
+%%         websocket_info({ModuleName, Callback, Args}, State) -> ...
+%%       where Module name is the creator of event, Callback is the
+%%       function to call and Args is the optional arguments list to 
+%%       pass.
 %% @end
 %%--------------------------------------------------------------------
 -spec websocket_info(any(), any()) -> {ok, any()}.

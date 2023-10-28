@@ -582,3 +582,5 @@ will be required to remove useless stuff and perhaps a new one.
 Lot of tests will be required, to check if it's working, but we have a
 small websocket client now! It will be easier to craft a full test
 suite and simulate real world environment.
+
+Note: a quick update on websocket_info event management! :)
