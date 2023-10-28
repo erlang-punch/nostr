@@ -517,3 +517,39 @@ Okay, we have lot of things to do there. Encoder/decoder for filters
 don't seem correct at first glance for the server part. The code is
 "working" but more is required. All the logic part needs to be
 implemented. We'll see that in another shortcut!
+
+== 2023-10-28: Shortcut_24_32
+
+Back for another shortcut session. We need to correct how I store
+created_at, instead of using Erlang notation, we will keep epoch one
+(from unix). After that, we will work on an interface to filter/get
+data, if we have time, we'll work with qlc.
+
+I started to add labels for filters, as reminder, a label is a kind of
+metadata used to give more information when decoding a payload, for
+example the difference between since/until. This will be used to
+create limits.
+
+== 2023-10-28: Shortcut_24_33
+
+Let continue to add filter labels then we will switch to data storage
+and filtering. Now, we can have labels when decoding filters! It will
+be quite useful. Note: I think I will find other bugs, this part of
+the code is not completely tested.
+
+To answer correctly to the client, I will need to alter global state
+by adding, at least, the connection and the websocket reference.
+
+== 2023-10-28: Shortcut_24_34
+
+Let add http connection and websocket reference into the global
+state. It seems we can't do that... Instead, I will need to create a
+list of answers to return. I think I need a small break. I have some
+difficulties to do something simple. Woohoo! It works! I need a small
+break now, but next:
+
+ - cleaning up a little bit this dirty method
+ - create a subscription table where subscriptions are stored
+ - one connection = many subscription
+ - when a connection is terminated, susbscriptions are removed
+ - and much more...

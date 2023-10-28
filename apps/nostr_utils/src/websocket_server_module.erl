@@ -102,24 +102,38 @@ error_exchange(_, State) ->
 %% @doc
 %% @end
 %%--------------------------------------------------------------------
-stop_exchange(#ok{} = OK, State) ->
-    stop_encoder(OK, State);
-stop_exchange(#notice{} = Notice, State) ->
-    stop_encoder(Notice, State);
-stop_exchange(#eose{} = Eose, State) ->
-    stop_encoder(Eose,State);
-stop_exchange(#subscription{} = Subscription, State) ->
-    stop_encoder(Subscription, State).
+stop_exchange({raw, RawMessages}, State) 
+  when is_list(RawMessages) ->
+    {RawMessages, State};
+stop_exchange(Message, State) ->
+    stop_encoder(Message, State).
 
 %%--------------------------------------------------------------------
 %% @hidden
 %% @doc wrapper around nostrlib:encode/2
 %% @end
 %%--------------------------------------------------------------------
+stop_encoder(Messages, State)
+  when is_list(Messages) ->
+    Return = [ encoder(Message) || Message <- Messages ],
+    {Return, State};
 stop_encoder(Message, State) ->
-    case nostrlib:encode(Message, State) of
-        {ok, Encoded} ->
-            {[{text, Encoded}], State};
+    case encoder(Message) of
+        {text, _} = Encoded ->
+            {[Encoded], State};
         Elsewise ->
             Elsewise
     end.
+
+encoder(Message) 
+  when is_record(Message, ok) orelse
+       is_record(Message, notice) orelse
+       is_record(Message, eose) orelse
+       is_record(Message, subscription) ->
+    case nostrlib:encode(Message) of
+        {ok, Encoded} ->
+            {text, Encoded};
+        Elsewise ->
+            throw(Elsewise)
+    end.
+    

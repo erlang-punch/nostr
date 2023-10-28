@@ -189,19 +189,19 @@ encode_request(_Config) ->
     {ok,<<"[\"REQ\",\"1234\",{\"limit\":10}]">>}
         = nostrlib:encode(#request{subscription_id = <<"1234">>, filter = #filter{ limit = 10 }}, Opts),
 
-    % since can't be an integer
-    {error,[{since,123}]}
-        =  nostrlib:encode(#request{ subscription_id = <<"test">>, filter = #filter{ since = 123 }}),
+    % since can be an integer
+    {ok,<<"[\"REQ\",\"test\",{\"since\":1577836800}]">>}
+        =  nostrlib:encode(#request{ subscription_id = <<"test">>, filter = #filter{ since = 1577836800 }}),
 
-    % since is an universal date
+    % since can also be an universal date
     {ok,<<"[\"REQ\",\"test\",{\"since\":1577836800}]">>}
         = nostrlib:encode(#request{ subscription_id = <<"test">>, filter = #filter{ since = {{2020,1,1},{0,0,0} }}}),
     
-    % until can't be an integer
-    {error,[{until,123}]}
-        = nostrlib:encode(#request{ subscription_id = <<"test">>, filter = #filter{ until = 123 }}),
+    % until can be an integer
+    {ok,<<"[\"REQ\",\"test\",{\"until\":1577836800}]">>}
+        = nostrlib:encode(#request{ subscription_id = <<"test">>, filter = #filter{ until = 1577836800 }}),
 
-    % until is an universal date
+    % until can also be an universal date
     {ok,<<"[\"REQ\",\"test\",{\"until\":1577836800}]">>}
         = nostrlib:encode(#request{ subscription_id = <<"test">>, filter = #filter{ until = {{2020,1,1},{0,0,0} }}}),
 

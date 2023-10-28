@@ -309,6 +309,10 @@ encode_filter_tag_public_keys(#filter{ tag_event_ids = T }, _) ->
 encode_filter_since(#filter{ since = Since } = Filter, Buffer)
   when Since =:= undefined ->
     encode_filter_until(Filter, Buffer);
+encode_filter_since(#filter{ since = Since } = Filter, Buffer)
+  when is_integer(Since) andalso Since > 0 ->
+    Next = Buffer#{ <<"since">> => Since },
+    encode_filter_until(Filter, Next);
 encode_filter_since(#filter{ since = {{_,_,_},{_,_,_}} = Since } = Filter, Buffer) ->
     Timestamp = erlang:universaltime_to_posixtime(Since),
     Next = Buffer#{ <<"since">> => Timestamp },
@@ -322,6 +326,10 @@ encode_filter_since(#filter{ since = Since }, _Buffer) ->
 encode_filter_until(#filter{ until = Until } = Filter, Buffer)
   when Until =:= undefined ->
     encode_filter_limit(Filter, Buffer);
+encode_filter_until(#filter{ until = Until } = Filter, Buffer)
+  when is_integer(Until) andalso Until > 0 ->
+    Next = Buffer#{ <<"until">> => Until },
+    encode_filter_limit(Filter, Next);
 encode_filter_until(#filter{ until = {{_,_,_},{_,_,_}} = Until } = Filter, Buffer) ->
     Timestamp = erlang:universaltime_to_posixtime(Until),
     Next = Buffer#{ <<"until">> => Timestamp },
@@ -498,6 +506,10 @@ encode_event_created_at(#event{ created_at = undefined } = Event, Opts, Buffer) 
     NextEvent = Event#event{ created_at = UniversalTime },
     Next = Buffer#{ <<"created_at">> => CreatedAt },
     encode_event_public_key(NextEvent, Opts, Next);
+encode_event_created_at(#event{ created_at = CreatedAt } = Event, Opts, Buffer)
+  when is_integer(CreatedAt) andalso CreatedAt > 0 ->
+    Next = Buffer#{ <<"created_at">> => CreatedAt },
+    encode_event_public_key(Event, Opts, Next);
 encode_event_created_at(#event{ created_at = {{_,_,_},{_,_,_}} = CreatedAt } = Event, Opts, Buffer) ->
     Next = Buffer#{ <<"created_at">> => erlang:universaltime_to_posixtime(CreatedAt) },
     encode_event_public_key(Event, Opts, Next);
@@ -669,14 +681,14 @@ encode_tag_test() ->
 encode_ok(#ok{} = OK, Opts) ->
     encode_ok_event_id(OK, Opts, [<<"OK">>]).
 
-encode_ok_event_id(#ok{ event_id = EventId } = OK, Opts, Buffer) 
+encode_ok_event_id(#ok{ event_id = EventId } = OK, Opts, Buffer)
   when is_binary(EventId) andalso size(EventId) =:= 32 ->
     EncodedEventId = binary_to_hex(EventId),
     encode_ok_accepted(OK, Opts, Buffer ++ [EncodedEventId]);
 encode_ok_event_id(#ok{ event_id = EventId }, _Opts, Buffer) ->
     {error, [{event_id, EventId}, {buffer, Buffer}]}.
 
-encode_ok_accepted(#ok{ accepted = Accepted } = OK, Opts, Buffer) 
+encode_ok_accepted(#ok{ accepted = Accepted } = OK, Opts, Buffer)
   when is_boolean(Accepted) ->
     encode_ok_prefix(OK, Opts, Buffer ++ [Accepted]);
 encode_ok_accepted(#ok{ accepted = Accepted }, _Opts, Buffer) ->
@@ -684,27 +696,27 @@ encode_ok_accepted(#ok{ accepted = Accepted }, _Opts, Buffer) ->
 
 encode_ok_prefix(#ok{prefix = <<>>, message = <<>>} = OK, Opts, Buffer) ->
     encoded_ok_final(OK, Opts, Buffer ++ [<<>>]);
-encode_ok_prefix(#ok{prefix = <<"pow">>, message = Message} = OK, Opts, Buffer) 
+encode_ok_prefix(#ok{prefix = <<"pow">>, message = Message} = OK, Opts, Buffer)
   when is_binary(Message) ->
     FullMessage = <<"pow", ": ", Message/binary>>,
     encoded_ok_final(OK, Opts, Buffer ++ [FullMessage]);
-encode_ok_prefix(#ok{prefix = <<"duplicate">>, message = Message} = OK, Opts, Buffer) 
+encode_ok_prefix(#ok{prefix = <<"duplicate">>, message = Message} = OK, Opts, Buffer)
   when is_binary(Message) ->
     FullMessage = <<"duplicate", ": ", Message/binary>>,
     encoded_ok_final(OK, Opts, Buffer ++ [FullMessage]);
-encode_ok_prefix(#ok{prefix = <<"blocked">>, message = Message} = OK, Opts, Buffer) 
+encode_ok_prefix(#ok{prefix = <<"blocked">>, message = Message} = OK, Opts, Buffer)
   when is_binary(Message) ->
     FullMessage = <<"blocked", ": ", Message/binary>>,
     encoded_ok_final(OK, Opts, Buffer ++ [FullMessage]);
-encode_ok_prefix(#ok{prefix = <<"rate-limited">>, message = Message} = OK, Opts, Buffer) 
+encode_ok_prefix(#ok{prefix = <<"rate-limited">>, message = Message} = OK, Opts, Buffer)
   when is_binary(Message) ->
     FullMessage = <<"rate-limited", ": ", Message/binary>>,
     encoded_ok_final(OK, Opts, Buffer ++ [FullMessage]);
-encode_ok_prefix(#ok{prefix = <<"invalid">>, message = Message} = OK, Opts, Buffer) 
+encode_ok_prefix(#ok{prefix = <<"invalid">>, message = Message} = OK, Opts, Buffer)
   when is_binary(Message) ->
     FullMessage = <<"invalid", ": ", Message/binary>>,
     encoded_ok_final(OK, Opts, Buffer ++ [FullMessage]);
-encode_ok_prefix(#ok{prefix = <<"error">>, message = Message} = OK, Opts, Buffer) 
+encode_ok_prefix(#ok{prefix = <<"error">>, message = Message} = OK, Opts, Buffer)
   when is_binary(Message) ->
     FullMessage = <<"error", ": ", Message/binary>>,
     encoded_ok_final(OK, Opts, Buffer ++ [FullMessage]);
@@ -936,11 +948,11 @@ decode_event_pubkey(_, _, _) ->
 %%--------------------------------------------------------------------
 %% @hidden
 %%--------------------------------------------------------------------
-decode_event_created_at(#{ <<"created_at">> := RawCreatedAt } = Rest, Buffer, Labels)
-  when is_integer(RawCreatedAt) ->
-    CreatedAt = erlang:posixtime_to_universaltime(RawCreatedAt),
+decode_event_created_at(#{ <<"created_at">> := CreatedAt } = Rest, Buffer, Labels)
+  when is_integer(CreatedAt) andalso CreatedAt > 0 ->
+    CreatedAtDiff = erlang:system_time(seconds) - CreatedAt,
     Next = Buffer#event{ created_at = CreatedAt },
-    decode_event_kind(Rest, Next, Labels);
+    decode_event_kind(Rest, Next, [{created_at_diff, CreatedAtDiff}|Labels]);
 decode_event_created_at(_,_,_) ->
     {error, [{event, {missing, created_at}}]}.
 
@@ -1244,7 +1256,7 @@ serialize(#{ <<"pubkey">> := <<PublicKey/binary>> })
   when byte_size(PublicKey) =/= 64 ->
     {error, [{public_key, PublicKey}]};
 serialize(#{ <<"created_at">> := CreatedAt })
-  when not is_integer(CreatedAt) orelse CreatedAt<0 ->
+  when not is_integer(CreatedAt) orelse CreatedAt < 0 ->
     {error, [{created_at, CreatedAt}]};
 serialize(#{ <<"kind">> := Kind })
   when not is_integer(Kind) ->
@@ -1302,203 +1314,224 @@ decode_subscription(<<SubscriptionId/binary>>, RawEvent, Labels) ->
 %% @doc internal function.
 %% @end
 %%--------------------------------------------------------------------
-decode_filters(Filter)
+decode_filters(Filter, Labels)
   when is_map(Filter) ->
-    decode_filter(Filter);
-decode_filters(Filters)
+    decode_filter(Filter, Labels);
+decode_filters(Filters, Labels)
   when is_list(Filters)->
-    decode_filters(Filters, []).
+    decode_filters(Filters, [], Labels).
 
 %%--------------------------------------------------------------------
 %% @hidden
 %%--------------------------------------------------------------------
-decode_filters([], Buffer) ->
-    {ok, lists:reverse(Buffer)};
-decode_filters([Filter|Rest], Buffer) ->
-    case decode_filter(Filter) of
-        {ok, F} -> decode_filters(Rest, [F|Buffer]);
-        Elsewise -> Elsewise
+decode_filters([], Buffer, Labels) ->
+    {ok, lists:reverse(Buffer), Labels};
+decode_filters([Filter|Rest], Buffer, Labels) ->
+    case decode_filter(Filter, Labels) of
+        {ok, F, NewLabels} ->
+            decode_filters(Rest, [F|Buffer], NewLabels);
+        Elsewise ->
+            Elsewise
     end.
 
 % @hidden
 -spec decode_filters_test() -> any().
 decode_filters_test() ->
-    [?assertEqual({ok, []}, decode_filters([]))
-    ,?assertEqual({ok, #filter{}}, decode_filters(#{}))
-    ,?assertEqual({ok, [#filter{}]}, decode_filters([#{}]))
+    [?assertEqual({ok, [], []}, decode_filters([], []))
+    ,?assertEqual({ok, #filter{}, []}, decode_filters(#{}, []))
+    ,?assertEqual({ok, [#filter{}], []}, decode_filters([#{}], []))
     ].
 
 %%--------------------------------------------------------------------
 %% @doc internal function.
 %% @end
 %%--------------------------------------------------------------------
-decode_filter(Filter) ->
-    decode_filter_check(Filter).
+decode_filter(Filter, Labels) ->
+    decode_filter_check(Filter, Labels).
 
 %%--------------------------------------------------------------------
 %% @hidden
 %%--------------------------------------------------------------------
-decode_filter_check(#{ <<"since">> := Since })
+decode_filter_check(#{ <<"since">> := Since }, _Labels)
   when not is_integer(Since) orelse Since < 0 ->
     {error, [{since, Since}]};
-decode_filter_check(#{ <<"until">> := Until })
+decode_filter_check(#{ <<"until">> := Until }, _Labels)
   when not is_integer(Until) orelse Until < 0 ->
     {error, [{until, Until}]};
-decode_filter_check(#{ <<"since">> := Since, <<"until">> := Until })
+decode_filter_check(#{ <<"since">> := Since, <<"until">> := Until }, _Labels)
   when Since > Until ->
     {error, [{until, Until}, {since, Since}]};
-decode_filter_check(#{ <<"limit">> := Limit })
+decode_filter_check(#{ <<"limit">> := Limit }, _Labels)
   when not is_integer(Limit) orelse Limit < 0 ->
     {error, [{limit, Limit}]};
-decode_filter_check(#{ <<"ids">> := EventsIds })
+decode_filter_check(#{ <<"ids">> := EventsIds }, _Labels)
   when not is_list(EventsIds) ->
     {error, [{event_ids, EventsIds}]};
-decode_filter_check(#{ <<"authors">> := Authors })
+decode_filter_check(#{ <<"authors">> := Authors }, _Labels)
   when not is_list(Authors) ->
     {error, [{authors, Authors}]};
-decode_filter_check(#{ <<"#e">> := TagEventIds })
+decode_filter_check(#{ <<"#e">> := TagEventIds }, _Labels)
   when not is_list(TagEventIds) ->
     {error, [{tag_event_ids, TagEventIds}]};
-decode_filter_check(#{ <<"#p">> := TagPublicKeys })
+decode_filter_check(#{ <<"#p">> := TagPublicKeys }, _Labels)
   when not is_list(TagPublicKeys) ->
     {error, [{tag_public_keys, TagPublicKeys}]};
-decode_filter_check(#{ <<"kinds">> := Kinds })
+decode_filter_check(#{ <<"kinds">> := Kinds }, _Labels)
   when not is_list(Kinds) ->
     {error, [{kinds, Kinds}]};
-decode_filter_check(Filter) ->
-    decode_filter_ids(Filter, #filter{}).
+decode_filter_check(Filter, Labels) ->
+    decode_filter_ids(Filter, #filter{}, Labels).
 
 %%--------------------------------------------------------------------
 %% @hidden
 %%--------------------------------------------------------------------
 % @todo add decode prefixes for ids
-decode_filter_ids(#{ <<"ids">> := EventIds } = Filter, Buffer)
+decode_filter_ids(#{ <<"ids">> := EventIds } = Filter, Buffer, Labels)
   when is_list(EventIds) ->
-    case decode_prefixes(EventIds) of
-        {ok, Prefixes} ->
+    case decode_prefixes(EventIds, Labels) of
+        {ok, Prefixes, NewLabels} ->
             Next = Buffer#filter{ event_ids = Prefixes },
-            decode_filter_authors(Filter, Next);
+            decode_filter_authors(Filter, Next, NewLabels);
         Elsewise ->
             Elsewise
     end;
-decode_filter_ids(Filter, Buffer)
+decode_filter_ids(Filter, Buffer, Labels)
   when is_map(Filter) ->
-    decode_filter_authors(Filter, Buffer).
+    decode_filter_authors(Filter, Buffer, Labels).
 
 %%--------------------------------------------------------------------
 %% @hidden
 %%--------------------------------------------------------------------
-decode_prefixes(Prefixes) ->
-    decode_prefixes(Prefixes, []).
+decode_prefixes(Prefixes, Labels) ->
+    decode_prefixes(Prefixes, [], Labels).
 
 %%--------------------------------------------------------------------
 %% @hidden
 %%--------------------------------------------------------------------
-decode_prefixes([], Buffer) -> {ok, lists:reverse(Buffer)};
-decode_prefixes([Prefix|Rest], Buffer) ->
+decode_prefixes([], Buffer, Labels) ->
+    {ok, lists:reverse(Buffer), Labels};
+decode_prefixes([Prefix|Rest], Buffer, Labels) ->
     case is_hex(Prefix) of
         true ->
             Decoded = hex_to_binary(Prefix),
-            decode_prefixes(Rest, [Decoded|Buffer]);
+            decode_prefixes(Rest, [Decoded|Buffer], Labels);
         false ->
             {error, [{prefix, Prefix}]}
     end;
-decode_prefixes(Prefixes,_) ->
+decode_prefixes(Prefixes, _, _Labels) ->
     {error, [{prefixes, Prefixes}]}.
 
 %%--------------------------------------------------------------------
 %% @hidden
 %%--------------------------------------------------------------------
 % @todo add decode prefixes for authors
-decode_filter_authors(#{ <<"authors">> := Authors } = Filter, Buffer)
+decode_filter_authors(#{ <<"authors">> := Authors } = Filter, Buffer, Labels)
   when is_list(Authors) ->
-    case decode_prefixes(Authors) of
-        {ok, Prefixes} ->
+    case decode_prefixes(Authors, Labels) of
+        {ok, Prefixes, NewLabels} ->
             Next = Buffer#filter{ authors = Prefixes },
-            decode_filter_kinds(Filter, Next);
+            decode_filter_kinds(Filter, Next, NewLabels);
         Elsewise -> Elsewise
     end;
-decode_filter_authors(Filter, Buffer)
+decode_filter_authors(Filter, Buffer, Labels)
   when is_map(Filter) ->
-    decode_filter_kinds(Filter, Buffer).
+    decode_filter_kinds(Filter, Buffer, Labels).
 
 %%--------------------------------------------------------------------
 %% @hidden
 %%--------------------------------------------------------------------
-decode_filter_kinds(#{ <<"kinds">> := Kinds } = Filter, Buffer) ->
+decode_filter_kinds(#{ <<"kinds">> := Kinds } = Filter, Buffer, Labels) ->
     Next = Buffer#filter{ kinds = kinds(Kinds) },
-    decode_filter_tag_event_ids(Filter, Next);
-decode_filter_kinds(Filter, Buffer)
+    decode_filter_tag_event_ids(Filter, Next, Labels);
+decode_filter_kinds(Filter, Buffer, Labels)
   when is_map(Filter) ->
-    decode_filter_tag_event_ids(Filter, Buffer).
+    decode_filter_tag_event_ids(Filter, Buffer, Labels).
 
 %%--------------------------------------------------------------------
 %% @hidden
 %%--------------------------------------------------------------------
 % @todo add decode for tags event ids
-decode_filter_tag_event_ids(#{ <<"#e">> := TagEventIds } = Filter, Buffer) ->
+decode_filter_tag_event_ids(#{ <<"#e">> := TagEventIds } = Filter, Buffer, Labels) ->
     Parsed = lists:map(fun(X) -> hex_to_binary(X) end, TagEventIds),
     Next = Buffer#filter{ tag_event_ids = Parsed },
-    decode_filter_tag_public_keys(Filter, Next);
-decode_filter_tag_event_ids(Filter, Buffer)
+    decode_filter_tag_public_keys(Filter, Next, Labels);
+decode_filter_tag_event_ids(Filter, Buffer, Labels)
   when is_map(Filter) ->
-    decode_filter_tag_public_keys(Filter, Buffer).
+    decode_filter_tag_public_keys(Filter, Buffer, Labels).
 
 %%--------------------------------------------------------------------
 %% @hidden
 %%--------------------------------------------------------------------
 % @todo add decode for tags public keys
-decode_filter_tag_public_keys(#{ <<"#p">> := TagPublicKeys } = Filter, Buffer) ->
+decode_filter_tag_public_keys(#{ <<"#p">> := TagPublicKeys } = Filter, Buffer, Labels) ->
     Parsed = lists:map(fun(X) -> hex_to_binary(X) end, TagPublicKeys),
     Next = Buffer#filter{ tag_public_keys = Parsed },
-    decode_filter_since(Filter, Next);
-decode_filter_tag_public_keys(Filter, Buffer)
+    decode_filter_since(Filter, Next, Labels);
+decode_filter_tag_public_keys(Filter, Buffer, Labels)
   when is_map(Filter) ->
-    decode_filter_since(Filter, Buffer).
+    decode_filter_since(Filter, Buffer, Labels).
+
+%%--------------------------------------------------------------------
+%% @hidden
+%% @doc we assume the timestamp is correct.
+%% @end
+%%--------------------------------------------------------------------
+decode_filter_since(#{ <<"since">> := Since } = Filter, Buffer, Labels)
+  when is_integer(Since) andalso Since > 0 ->
+    Next = Buffer#filter{ since = Since },
+    decode_filter_until(Filter, Next, Labels);
+decode_filter_since(Filter, Buffer, Labels)
+  when is_map(Filter) ->
+    decode_filter_until(Filter, Buffer, Labels).
+
+%%--------------------------------------------------------------------
+%% @hidden
+%% @doc we assume the timestamps is correct.
+%% @end
+%%--------------------------------------------------------------------
+decode_filter_until(#{ <<"until">> := Until } = Filter, Buffer, Labels)
+  when is_integer(Until) andalso Until > 0 ->
+    Next = Buffer#filter{ until = Until },
+    decode_filter_limit(Filter, Next, Labels);
+decode_filter_until(Filter, Buffer, Labels)
+  when is_map(Filter) ->
+    decode_filter_limit(Filter, Buffer, Labels).
 
 %%--------------------------------------------------------------------
 %% @hidden
 %%--------------------------------------------------------------------
-decode_filter_since(#{ <<"since">> := Since } = Filter, Buffer) ->
-    Next = Buffer#filter{ since = erlang:posixtime_to_universaltime(Since) },
-    decode_filter_until(Filter, Next);
-decode_filter_since(Filter, Buffer)
+decode_filter_limit(#{ <<"limit">> := Limit } = Filter, Buffer, Labels) ->
+    Next = Buffer#filter{ limit = Limit },
+    decode_filter_final(Filter, Next, Labels);
+decode_filter_limit(Filter, Buffer, Labels)
   when is_map(Filter) ->
-    decode_filter_until(Filter, Buffer).
+    decode_filter_final(Filter, Buffer, Labels).
 
 %%--------------------------------------------------------------------
 %% @hidden
 %%--------------------------------------------------------------------
-decode_filter_until(#{ <<"until">> := Until } = Filter, Buffer) ->
-    Next = Buffer#filter{ until = erlang:posixtime_to_universaltime(Until) },
-    decode_filter_limit(Filter, Next);
-decode_filter_until(Filter, Buffer)
-  when is_map(Filter) ->
-    decode_filter_limit(Filter, Buffer).
-
-%%--------------------------------------------------------------------
-%% @hidden
-%%--------------------------------------------------------------------
-decode_filter_limit(#{ <<"limit">> := Limit } = _Filter, Buffer) ->
-    {ok, Buffer#filter{ limit = Limit }};
-decode_filter_limit(Filter, Buffer)
-  when is_map(Filter) ->
-    {ok, Buffer}.
+% if until and since are configured, we create interval label containing
+% the difference between these two timestamp.
+decode_filter_final(_Filter, #filter{ until = Until, since = Since } = Buffer, Labels)
+  when is_integer(Until) andalso is_integer(Since) ->
+    {ok, Buffer, [{interval, abs(Since-Until)}|Labels]};
+decode_filter_final(_Filter, Buffer, Labels) ->
+    {ok, Buffer, Labels}.
 
 %%--------------------------------------------------------------------
 %% @hidden
 %%--------------------------------------------------------------------
 -spec decode_filter_test() -> any().
 decode_filter_test() ->
-    [?assertEqual({ok, #filter{}}, decode_filter(#{}))
-    ,?assertEqual({ok, #filter{ since = {{2020,01,01}, {00,00,00}}
-                              , until = {{2021,01,01}, {00,00,00}}
+    [?assertEqual({ok, #filter{}, []}, decode_filter(#{}, []))
+    ,?assertEqual({ok, #filter{ since = 1577836800
+                              , until = 1609459200
                               , limit = 100
-                              }}
+                              }, [{interval, 31622400}]}
                  ,decode_filter(#{ <<"since">> => 1577836800
                                  , <<"until">> => 1609459200
                                  , <<"limit">> => 100
-                                 })
+                                 }, [])
                  )
     ].
 
@@ -1508,12 +1541,12 @@ decode_filter_test() ->
 %% @end
 %%--------------------------------------------------------------------
 decode_request(SubscriptionId, Filters, Labels) ->
-    case decode_filters(Filters) of
-        {ok, F} ->
+    case decode_filters(Filters, Labels) of
+        {ok, F, NewLabels} ->
             Request = #request{ subscription_id = SubscriptionId
                               , filter = F
                               },
-            {ok, Request, Labels};
+            {ok, Request, NewLabels};
         Elsewise -> Elsewise
     end.
 
