@@ -30,9 +30,9 @@
 %%--------------------------------------------------------------------
 -spec start(string(), pos_integer()) -> {ok, pid()}.
 start(Host, Port) ->
-    State = #{ handlers => [ websocket_server_filter
-                           , websocket_server_nip01 
-                           ]},
+    State = #{ websocket_pipeline => [ websocket_server_action_guard
+                                     , websocket_server_action_nip01
+                                     ]},
                              
     gen_server:start(?MODULE, #{ host => Host
                                , port => Port
@@ -64,13 +64,26 @@ stop(Pid) ->
 -spec init(map()) -> {ok, pid()}.
 init(#{ host := _Host, port := Port, state := S }) ->
     application:ensure_all_started(cowboy),
+
+    % This dispatch should be "dynamically" created or simply forward
+    % to a module doing the hostname/path validation if nostr is
+    % supporting it (present in the database).
     Dispatch = cowboy_router:compile([
         {'_', [{'_', ?MODULE, S}]}
     ]),
+
+    % By default we are configuring listening port
     Opts = [{port, Port}],
     Env = #{ env => #{ dispatch => Dispatch }},
+
+    % we start a clear cowboy session
     {ok, Pid} = cowboy:start_clear({?MODULE, Port}, Opts, Env),
-    erlang:link(Pid),
+
+    % we ensure our current process is linked to the new one we
+    % created
+    % erlang:link(Pid),
+
+    % we create the state containing cowboy pid.
     State = #{ listener => Pid },
     {ok, State}.
 
@@ -120,7 +133,11 @@ terminate(_Reason, _State) -> ok.
 -spec init(any(), any()) -> {cowboy_websocket, any(), any()}.
 init(Req, State) ->
     ?LOG_INFO("~p", [{?MODULE, init, Req, State}]),
-    {cowboy_websocket, Req, State, #{ idle_timeout => 60000*5}}.
+    WebsocketOptions = #{ idle_timeout => 60_000*5 },
+    WebsocketState = State#{ request => Req
+                           , websocket_options => WebsocketOptions 
+                           },
+    {cowboy_websocket, Req, WebsocketState, WebsocketOptions}.
 
 %%--------------------------------------------------------------------
 %% @hidden
@@ -139,14 +156,15 @@ websocket_init(State) ->
 %%--------------------------------------------------------------------
 -spec websocket_handle(term(), term()) -> {term(), term()}.
 
-websocket_handle(Frame, #{ handlers := [Handler|Handlers] } = State) ->
-    Handler:init(Frame, State#{ handlers => Handlers });
-websocket_handle({text, _Message} = Frame, State) ->
-    ?LOG_INFO("~p", [{?MODULE, websocket_handle, Frame, State}]),
-    {[Frame], State};
-websocket_handle({binary, _Binary} = Frame, State) ->
-    ?LOG_INFO("~p", [{?MODULE, websocket_handle, Frame, State}]),
-    {[Frame], State}.
+websocket_handle(Frame, State) ->
+    websocket_server_module:init(Frame, State).
+
+%% websocket_handle({text, _Message} = Frame, State) ->
+%%     ?LOG_INFO("~p", [{?MODULE, websocket_handle, Frame, State}]),
+%%     {[Frame], State};
+%% websocket_handle({binary, _Binary} = Frame, State) ->
+%%     ?LOG_INFO("~p", [{?MODULE, websocket_handle, Frame, State}]),
+%%     {[Frame], State}.
 
 %%--------------------------------------------------------------------
 %% @hidden

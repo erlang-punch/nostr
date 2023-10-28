@@ -441,4 +441,59 @@ encoding part is practically done... So, it looks very good! We have
 implemented a lot of crazy stuff during the latest shortcuts. We will
 continue in another one! :)
 
+== 2023-10-28: Shortcut_24_27
 
+Let continue to work on our websocket server model. I really would
+like to have a kind of module system at the end of this pomodoro,
+returning an issue if something goes wrong (notice) or continuing
+until we reach something valid.
+
+Creating a behavior is not an easy task, even more when you don't
+really master the protocol. The idea here is to create a pipeline of
+actions, each action will return one kind of data, and main loop will
+be in charge of dealing with them. Offering the global state by
+default is perhaps not the best idea, I should probaly split it in two
+part, one local state for the execution (directly offered to the
+callback) and one extra state with the "whole" view of the connection,
+used for example, when we need to deal with low level features or fine
+grained websocket interaction.
+
+== 2023-10-28: Shortcut_24_28
+
+Let continue to work on the pipeline execution and find a way to deal
+with those "annoying" states. Let try with this really small subset of
+nip01. We will just encode ok and notice messages, without altering
+the global state. We now need to adapt websocket_server_filter... Or
+create a new one.
+
+We have something that just "work" only for a small subset, but it
+"works". Let try to improve that. FYI, I don't think it will be a
+quite performant implementation, but we will improve that later.
+
+== 2023-10-28: Shortcut_24_29
+
+In this session we will continue to test our nostr relay behavior. Let
+write some test. Hmm, it looks like we have a small bug there, since
+we added an explicit call to another module (to store data). Will try
+to fix it before the next shortcut. It looks good! :)
+
+== 2023-10-28: Shortcut_24_30
+
+Our pipeline is working, it's just a first version, but I think we can
+use it without problem. Let try to generate some data and insert them
+into the database.
+
+Events are correctly inserted! Let create the other response from
+relay to client. At this time, without testing, it looks "good", but I
+will need to create more test and specifications.
+
+I would like to use mnesia by default, but on big server, I'm not sure
+it will be a good idea, so, creating a kind of storage interface could
+be quite helpful. Mnesia would be the main store to keep only daily or
+hourly events (like a cache), others events will be stored on one or
+many places (postgresql, buckets, filesystems...). This MUST be
+flexible to allow encryption by default.
+
+Next, I will need to think about multi-domain and path support. Stored
+these information in a configuration file first (synchronized with
+mnesia) can be a good start.
