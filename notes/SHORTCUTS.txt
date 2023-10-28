@@ -553,3 +553,32 @@ break now, but next:
  - one connection = many subscription
  - when a connection is terminated, susbscriptions are removed
  - and much more...
+
+== 2023-10-28: Shortcut_24_35
+
+It seems I don't need to create a table for subscriptions. Indeed,
+because subscriptions are tighly linked to a connection, we can store
+them directly in the websocket state, and set a small timer sending a
+message every seconds to fetch latest values from subscriptions. It
+will also be read-only, so, we can use mnesia:dirty_* functions. Let
+try that.
+
+Okay, it looks good and it could work. I don't know if it could
+support an high amount of message though. It will require some tests
+and benchmark here. Limitations will also be required, I think 10
+subscriptions is a "correct" amount by default.
+
+== 2023-10-28: Shortcut_24_36
+
+Let document and try to find some bugs in our implementation. When
+done, I think it will be the time to implement it in the real world
+(in nostr_relay application).
+
+Okay! It seems we have our skeleton for nip01 on the relay side. It
+supports a small subset of all function. In fact, it has been
+implemented in a test module, but the ideas are there. A big cleanup
+will be required to remove useless stuff and perhaps a new one.
+
+Lot of tests will be required, to check if it's working, but we have a
+small websocket client now! It will be easier to craft a full test
+suite and simulate real world environment.

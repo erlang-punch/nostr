@@ -1,4 +1,6 @@
 %%%===================================================================
+%%% @author Mathieu Kerjouan <contact at erlang-punch.com>
+%%% @copyright (c) 2023 Erlang Punch
 %%% @doc
 %%%
 %%% websocket_server_module implement a new behavior to deal with
@@ -12,7 +14,9 @@
 -include_lib("nostrlib/include/nostrlib.hrl").
 
 %%--------------------------------------------------------------------
-%% @doc
+%% @doc forward directly client event to our main loop. We assume the
+%% data were correctly parsed.
+%%
 %% @end
 %%--------------------------------------------------------------------
 -spec init(Data, State) -> Return when
@@ -25,7 +29,13 @@ init(Data, #{ websocket_pipeline := Pipeline } = State) ->
 
 %%--------------------------------------------------------------------
 %% @hidden
-%% @doc main loop to deal with actions in pipeline.
+%% @doc
+%%
+%% main loop to deal with actions in pipeline. This function is acting
+%% as a router/decoder/encoder. Adding a cleanup feature at the end of
+%% the loop could probably be quite helpful to deal with missing empty
+%% states.
+%%
 %% @end
 %%--------------------------------------------------------------------
 -spec do_loop(any(), [atom(), ...], term()) -> any().
@@ -36,6 +46,10 @@ do_loop(Data, [Action|Pipeline], State) ->
         % function but if it's the case, then we execute it.
         Action:init(Data, State)
     of
+        % just do nothing and continue the execution of the socket.
+        {ok, NewState} ->
+            {[], NewState};
+
         % continue the execution with the same state and the result of
         % the previously executed action
         {next, Result} ->
@@ -89,20 +103,23 @@ do_loop(Data, [Action|Pipeline], State) ->
     end.
 
 %%--------------------------------------------------------------------
-%%
+%% @hidden
+%% @doc function to format error messages, a notice should probably be
+%%      used there.
+%% @end
 %%--------------------------------------------------------------------
 error_exchange(Reason, State)
   when is_binary(Reason) ->
     {[{close, 1000, Reason}], State};
 error_exchange(_, State) ->
-    {[{close, 1000, <<"error">>}], State}.    
+    {[{close, 1000, <<"error">>}], State}.
 
 %%--------------------------------------------------------------------
 %% @hidden
 %% @doc
 %% @end
 %%--------------------------------------------------------------------
-stop_exchange({raw, RawMessages}, State) 
+stop_exchange({raw, RawMessages}, State)
   when is_list(RawMessages) ->
     {RawMessages, State};
 stop_exchange(Message, State) ->
@@ -125,7 +142,12 @@ stop_encoder(Message, State) ->
             Elsewise
     end.
 
-encoder(Message) 
+%%--------------------------------------------------------------------
+%% @hidden
+%% @doc main encoder for ok, notice, eose and subscription record.
+%% @end
+%%--------------------------------------------------------------------
+encoder(Message)
   when is_record(Message, ok) orelse
        is_record(Message, notice) orelse
        is_record(Message, eose) orelse
@@ -136,4 +158,3 @@ encoder(Message)
         Elsewise ->
             throw(Elsewise)
     end.
-    

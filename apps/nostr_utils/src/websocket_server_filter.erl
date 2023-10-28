@@ -1,4 +1,6 @@
 %%%===================================================================
+%%% @author Mathieu Kerjouan <contact at erlang-punch.com>
+%%% @copyright (c) 2023 Erlang Punch
 %%% @doc
 %%%
 %%% ```

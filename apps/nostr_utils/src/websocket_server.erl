@@ -169,9 +169,15 @@ websocket_handle(Frame, State) ->
 %%--------------------------------------------------------------------
 %% @hidden
 %% @doc cowboy callback.
+%% @todo find a way to export this websocket_info to other modules,
+%%       for example, if one module needs to receive one info, it 
+%%       should automatically find it.
 %% @end
 %%--------------------------------------------------------------------
 -spec websocket_info(any(), any()) -> {ok, any()}.
+websocket_info(subscription, #{ subscriptions := _Subscriptions } = State) ->
+    ?LOG_DEBUG("~p", [{?MODULE, self(), subscription}]),
+    {ok, State};
 websocket_info(Info, State) ->
     ?LOG_INFO("~p", [{?MODULE, websocket_info, Info, State}]),
     {ok, State}.
@@ -182,4 +188,7 @@ websocket_info(Info, State) ->
 %% @end
 %%--------------------------------------------------------------------
 -spec terminate(any(), any(), any()) -> ok.
-terminate(_Reason, _Req, _State) -> ok.
+terminate(_Reason, _Req, #{ timer := Timer } = _State) ->
+    timer:cancel(Timer);
+terminate(_Reason, _Req, _State) -> 
+    ok.

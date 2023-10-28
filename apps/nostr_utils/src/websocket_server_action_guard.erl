@@ -1,6 +1,10 @@
 %%%===================================================================
-%%% @doc This module should validate the content of the message
-%%% received by nostr client, if valid, it goes to the next action.
+%%% @author Mathieu Kerjouan <contact at erlang-punch.com>
+%%% @copyright (c) 2023 Erlang Punch
+%%% @doc 
+%%%
+%%% This module should validate the content of the message received by
+%%% nostr client, if valid, it goes to the next action.
 %%%
 %%% @end
 %%%===================================================================
