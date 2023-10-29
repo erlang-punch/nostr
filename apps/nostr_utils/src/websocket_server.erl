@@ -146,7 +146,7 @@ init(Req, State) ->
 %%--------------------------------------------------------------------
 -spec websocket_init(term()) -> {ok, term()}.
 websocket_init(State) ->
-    ?LOG_INFO("~p", [{?MODULE, websocket_init, State}]),
+    ?LOG_DEBUG("~p", [{?MODULE, websocket_init, State}]),
     {[{text, "hello!"}], State}.
 
 %%--------------------------------------------------------------------
@@ -180,11 +180,42 @@ websocket_handle(Frame, State) ->
 %% @end
 %%--------------------------------------------------------------------
 -spec websocket_info(any(), any()) -> {ok, any()}.
-websocket_info(subscription, #{ subscriptions := _Subscriptions } = State) ->
-    ?LOG_DEBUG("~p", [{?MODULE, self(), subscription}]),
-    {ok, State};
+
+% define ModuleName:websocket_info/1
+websocket_info({callback, ModuleName} = Info, State) ->
+    ?LOG_DEBUG("~p", [{?MODULE, self(), Info, State}]),
+    try erlang:apply(ModuleName, websocket_info, [State])
+    catch
+        error:undef:_ ->
+            ?LOG_ERROR("~p",[{?MODULE, self(), ModuleName, websocket_info, undef}]),
+            {[], State};
+
+        % this part of the code should not crash.
+        Error:Reason:Stack ->
+            E = {Error, Reason, Stack},
+            ?LOG_ERROR("~p",[{?MODULE, self(), ModuleName, websocket_info, E}]),
+            {[], State}
+    end;
+
+% define ModuleName:websocket_info/2
+websocket_info({callback, ModuleName, Args} = Info, State) ->
+    ?LOG_DEBUG("~p", [{?MODULE, self(), Info, State}]),
+    try erlang:apply(ModuleName, websocket_info, [Args, State]) 
+    catch
+        error:undef:_ ->
+            ?LOG_ERROR("~p",[{?MODULE, self(), ModuleName, websocket_info, undef}]),
+            {[], State};
+
+        % this part of the code should not crash.
+        Error:Reason:Stack ->
+            E = {Error, Reason, Stack},
+            ?LOG_ERROR("~p",[{?MODULE, self(), ModuleName, websocket_info, E}]),
+            {[], State}
+    end;
+
+% other messages are simply dropped and logged.
 websocket_info(Info, State) ->
-    ?LOG_INFO("~p", [{?MODULE, websocket_info, Info, State}]),
+    ?LOG_WARNING("~p", [{?MODULE, websocket_info, Info, State}]),
     {ok, State}.
 
 %%--------------------------------------------------------------------

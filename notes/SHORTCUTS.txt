@@ -227,7 +227,7 @@ the application conversion to release.
 So, in ~25minutes we converted nostr monolytic application to an
 Erlang releases. Now, nostr, nostr_client, nostr_relay and bech32 are
 isolated application. It will be easier to export and reuse them in
-other projects. 
+other projects.
 
 == 2023-10-01: Shortcut_24/12
 
@@ -390,7 +390,7 @@ As a list of activated modules from one enabled relay.
    , {Module3, Param3} ]
 
 Where `Module1` is a behavior and MUST return a valid data to pass to
-the next module. 
+the next module.
 
 == 2023-10-27: Shortcut_24_22
 
@@ -399,7 +399,7 @@ valid. Okay, it works but I think I will read a bit all the updates
 added to the specification (NIPs), just to be sure I'm not going into
 the wall. For example, nip01 only support kind 0 and 1, a function
 callback could be created like in a "filter" module, saying this
-module only support a restricted list of Kinds. 
+module only support a restricted list of Kinds.
 
   kinds() -> [0,1].
 
@@ -422,7 +422,7 @@ Let continue to work on mnesia table to store our data. Great! If an
 event is already present in the database, we have now a message saying
 that to the client. That's good, but not enough.
 
-Let redesign this part of the code, it's becoming too complex. 
+Let redesign this part of the code, it's becoming too complex.
 
 == 2023-10-27: Shortcut_24_25
 
@@ -584,3 +584,110 @@ small websocket client now! It will be easier to craft a full test
 suite and simulate real world environment.
 
 Note: a quick update on websocket_info event management! :)
+
+== 2023-10-28: Shortcut_24_37
+
+Let continue to work on our websocket management. That's a bit
+complicated, but we must find a solution to make it easier. We are
+receiving two timers, that's "normal", my code is still quite
+dirty... Or not? Weird behavior with timer, I will check that later.
+
+websocket_info function can now forward specific messages to their own
+modules instead of modifying directly websocket_server module. When a
+callback message is received, websocket_info is called in the module
+defined in the second element of the tuple.
+
+What does it means for subscription? Well, that means we can deal with
+all the subscription stuff directly in the module itself instead of
+altering the main loop. websocket loop from websocket_server module
+needs to be isolated in its own module though.
+
+== 2023-10-28: Shortcut_24_38
+
+Let redesign websocket_server_action_request with a better
+subscription management.
+
+We should also do the same for the terminate function, when a module
+is present in the pipeline, terminate function must call them one by
+one. It will imply something else: execution order. A subscription is
+identified by an unique identifier per connection, a list is not
+really useful there, and a map is better solution.
+
+A timestamp is also required for each subscription, to have an idea
+when it was executed for the last time. Indeed, if we are polling
+them, the state must be updated with an information when the last
+extract was made. We will need to manage the close feature now.
+
+== 2023-10-28: Shortcut_24_39
+
+Let continue on close message implementation. A client can now add a
+new subscriptions and remove them. At first glance, it looks "good",
+then we need to deal with the filters... And that's not the same
+story! In fact, only events should be stored in the database,
+subscriptions and other things like that are not useful, except if we
+add a feature to store filters (when an user with a specific key
+connect, he has his subscriptions back).
+
+All the functions/steps created there are quite dirty and must be
+cleaned. One module MUST manage its own state with a dedicated
+function (documented if possible).
+
+Another thought... What if when a module is activated (or present in
+the pipeline), its name is automatically created with a default value
+in the state? Or, like I said previously in other shortcut, create a
+"module local state" and a "global state". The global state will stay
+unmodified, only "module local state" could be modified.
+
+This code should work:
+
+  ```erlang
+  websocket_server_action_store:start().
+  r3:do(compile).
+  rr(nostrlib).
+  f().
+  application:stop(ranch).
+  application:start(ranch).
+  {ok, S} = websocket_server:start("localhost", 8081).
+  {ok, C} = websocket_client:start("ws://localhost:8081").
+  {ok, E1} = nostrlib:encode(#event{ content = <<"test">>, kind = text_note}, [{private_key, <<1:256>>}]).
+  {ok, E2} = nostrlib:encode(#event{ content = <<"test">>, kind = text_note}, [{private_key, <<2:256>>}]).
+  {ok, E3} = nostrlib:encode(#event{ content = <<"test">>, kind = text_note}, [{private_key, <<3:256>>}]).
+  {ok, E4} = nostrlib:encode(#event{ content = <<"test">>, kind = text_note}, [{private_key, <<4:256>>}]).
+  [ websocket_client:send(C, binary_to_list(X)) || X <- [E1,E2,E3,E4] ].
+
+  {ok, Req} = nostrlib:encode(#request{ subscription_id = <<"test">>, filter = #filter{ event_ids = [ <<1:256>>]} }).
+  websocket_client:send(C, binary_to_list(Req)).
+
+  {ok, Req2} = nostrlib:encode(#request{ subscription_id = <<"test2">>, filter = #filter{ event_ids = [ <<1:256>>]} }).
+  websocket_client:send(C, binary_to_list(Req2)).
+
+  {ok, Close} = nostrlib:encode(#close{ subscription_id = <<"test">> }).
+  websocket_client:send(C, binary_to_list(Close)).
+  {ok, Close2} = nostrlib:encode(#close{ subscription_id = <<"test2">> }).
+  websocket_client:send(C, binary_to_list(Close2)).
+  ```
+
+== 2023-10-28: Shortcut_24_40
+
+Debugging part on subscriptions update. Not really usefull to have
+this timestamp on each requests... I think we can move it somewhere
+else. We have a s* ton of code deduplication. Timer is not created
+when we want to create a new subscription. It will be "funny" to clean
+this mess! :')
+
+Some bugs have been fixed, and the relay is starting to look great. I
+hope I will have enough time to create a subset of the filtering
+logic.
+
+== 2023-10-28: Shortcut_24_41
+
+We need to implement the logic part of the filters, for doing that, I
+will create a new module to test it called nu_filter. It will be my
+"simulation" module to break stuff. I will use a kind of TDD method
+there, it will be easier and probably better. What we have, should
+produce that, and so on.
+
+We should probably use proper or another module to generate this kind
+of annoying data. But it should be enough for the moment. We can then
+generate a lot of data.
+
