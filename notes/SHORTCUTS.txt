@@ -691,3 +691,42 @@ We should probably use proper or another module to generate this kind
 of annoying data. But it should be enough for the moment. We can then
 generate a lot of data.
 
+== 2023-11-18: Shortcut_24_42
+
+Let continue to work on random event generation, to have a way to
+check our server and create some test suites. (sorry, forgot to put
+the pomodoro...). So we have a way to generate fixed events based on a
+private key and fixed timestamp. Now, we can deal with the logic
+behind the filtering. The best way to have something stable here is to
+use TDD (test driven development). Because we will need to check many
+different situations, TDD will offer enough flexibility to at least
+found a good way to deal with the different path offered by our
+implementation.
+
+Furthermore, TDD will also challenge our internal API, if our code is
+too complex, our tests will be complex as well, and we will need to
+refactor it. Here, we have defined 3 new functions, one to filter a
+list of events against a list of filters, another one to filter one
+event against a list of filter, and the last one if to check if an
+event match one filter. With this configuration, we could easily
+insert this filtering into a guard, and if you already know QLC, you
+will understand where I want to go.
+
+== 2023-11-18: Shortcut_24_43
+
+Let continue to work on our event/filter testing. Okay, we have now a
+way to check the event ids present in the filter, but also the authors
+(with their public key(s)). This is not optimized at all,
+lists:filter/2 function will check the whole list. In fact, we must
+return true when we match the value, or false if we continue until the
+end of the list. Why creating to separate functions? Well, say we want
+to limit the size of the filtering list, we can do it directly on the
+parser, but also here. Those functions can have an optional field (in
+the future) to pass fine grained options, per user for example
+
+Next fields to check are kinds, tag_event_ids and tag_public_keys. We
+will deal with since, until and limit later.
+
+== 2023-11-18: Shortcut_24_44
+
+
