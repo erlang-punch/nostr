@@ -1,5 +1,17 @@
+%%%===================================================================
+%%% @doc
+%%%
+%%% This module requires an important number of optimization to
+%%% support an important load. All events are using lists... It works
+%%% for few events, but will be quite difficult to scale when having
+%%% lot of data. Because events will be stored in mnesia, continuation
+%%% should be used, with, if possible, QLC. At this time, this module
+%%% just work. Refacto will be required soon though.
+%%%
+%%% @end
+%%%===================================================================
 -module(nu_filter).
--export([match/2, match_event/2, match_event_filter/2]).
+-export([match/2, match_limit/2, match_event/2, match_event_filter/2]).
 -export([generate_random_event/1, generate_random_event/2]).
 -include_lib("eunit/include/eunit.hrl").
 -include_lib("nostrlib/include/nostrlib.hrl").
@@ -7,24 +19,110 @@
 
 %%--------------------------------------------------------------------
 %% @doc Check if a list of filters match a list of events.
+%%
+%% This function is quite dangerous though. We need a full eventlist,
+%% that means if we are using a huge amount of events... It will
+%% costly in resources. This function must be optimized, a
+%% continuation method or some facilities should also be implemented.
+%%
 %% @end
 %%--------------------------------------------------------------------
 -spec match(list(), list()) -> any().
+
 match([], []) -> [];
 match([], _EventList) -> [];
 match(_EventList, []) -> [];
+% if we have only one event
+match(#event{} = Event, FilterList) ->
+    match([Event], FilterList);
+% if only one filter is set
+match(Event, #filter{} = Filter) ->
+    match(Event, [Filter]);
 match(EventList, FilterList) ->
     Fun = fun(Event) -> match_event(Event, FilterList) end,
-    lists:filter(Fun, EventList).
+    Events = lists:filter(Fun, EventList),
+    sort_events_by_created_at(Events).
+
+%%--------------------------------------------------------------------
+%% @doc Return a limited number of events based on the limit field.
+%%
+%% Note: the specification does not explain how to deal with limit if
+%% a list of filters is given, the only thing is if this field is
+%% present, we should limit the number of events during the initial
+%% query.
+%%
+%% @end
+%%--------------------------------------------------------------------
+-spec match_limit(list(), list()) -> list().
+
+match_limit([], []) -> [];
+match_limit(_EventList, []) -> [];
+match_limit([], _FilterList) -> [];
+% if we have only one event
+match_limit(#event{} = Event, FilterList) ->
+    match_limit([Event], FilterList);
+% if only one filter is set
+match_limit(Event, #filter{} = Filter) ->
+    match_limit(Event, [Filter]);
+match_limit(EventList, FilterList) ->
+    Events =  match(EventList, FilterList),
+    case get_limit(FilterList) of
+        undefined -> Events;
+        Limit when is_integer(Limit) ->
+            SortedEvents = sort_events_by_created_at(Events),
+            take(SortedEvents, Limit)
+    end.
+
+%%--------------------------------------------------------------------
+%% @doc this function sort events using created_at field.
+%%
+%% @todo optimize this function.
+%% @end
+%%--------------------------------------------------------------------
+-spec sort_events_by_created_at(list()) -> list().
+
+sort_events_by_created_at(Events) ->
+    CreatedAtKey = [ {E#event.created_at, E} || E <- Events ],
+    Sorted = lists:sort(CreatedAtKey),
+    Reversed = lists:reverse(Sorted),
+    [ E || {_, E} <- Reversed ].
+
+%%--------------------------------------------------------------------
+%% @doc A quick and dirty way to extract a fixed number of events from
+%% an event list.
+%%
+%% @end
+%%--------------------------------------------------------------------
+-spec take(list(), pos_integer()) -> list().
+
+take(Events, Limit) -> take(Events, Limit, []).
+take([], _, Buffer) -> lists:reverse(Buffer);
+take(_, 0, Buffer) -> lists:reverse(Buffer);
+take(_, Limit, _) when Limit < 1 -> [];
+take([Event|Rest], Limit, Buffer) ->
+    take(Rest, Limit-1, [Event|Buffer]).
+
+%%--------------------------------------------------------------------
+%% 1. we want to extract all limit fields from filter list, then we
+%% take the last one.
+%%--------------------------------------------------------------------
+-spec get_limit(list()) -> undefined | integer().
+
+get_limit(FilterList) ->
+    Fun = fun(#filter{limit = Limit}, _) when is_integer(Limit) -> Limit;
+             (_, Acc) -> Acc
+          end,
+    lists:foldl(Fun, undefined, FilterList).
 
 %%--------------------------------------------------------------------
 %% @doc Check if a filter list match an event.
 %% @end
 %%--------------------------------------------------------------------
 -spec match_event(term(), list()) -> any().
+
 match_event(_Event, []) -> [];
-match_event(Event, FilterList) -> 
-    Result = [ match_event_filter(Event, Filter) 
+match_event(Event, FilterList) ->
+    Result = [ match_event_filter(Event, Filter)
                || Filter <- FilterList ],
     Fun = fun(X,A) -> X or A end,
     lists:foldl(Fun, false, Result).
@@ -117,7 +215,7 @@ match_event_author_test() ->
     % must return false
     WrongAuthors = [<<0:256>>, <<1:256>>],
     ?assertEqual(false, match_event_author(E, #filter{ authors = WrongAuthors })),
-    
+
     % a filter containing an author public key in the authors list
     % must return true.
     RightAuthors = [<<0:256>>, <<1:256>>, Public],
@@ -143,7 +241,7 @@ match_event_kind_test() ->
            ,{hour,00},{minute,00},{second,01}
            ,{kind,text_note}],
     E = nu_filter:generate_random_event(<<1:256>>, Opts),
-    
+
     % a filter with an empty kinds list must always return true
     % here.
     ?assertEqual(true, match_event_kind(E, #filter{ kinds = [] })),
@@ -153,11 +251,11 @@ match_event_kind_test() ->
     % must return false
     WrongKinds = [metadata],
     ?assertEqual(false, match_event_kind(E, #filter{ kinds = WrongKinds })),
-    
+
     % a filter containing an kind public key in the kinds list
     % must return true.
     RightKinds = [metadata, text_note],
-    ?assertEqual(true, match_event_kind(E, #filter{ kinds = RightKinds })).    
+    ?assertEqual(true, match_event_kind(E, #filter{ kinds = RightKinds })).
 
 %%--------------------------------------------------------------------
 %%
@@ -190,14 +288,14 @@ generate_random_event(PrivateKey) ->
 %%--------------------------------------------------------------------
 %% @doc
 %% ```
-%% [ nu_filter:generate_random_event(<<1:256>>, [{year, Y}]) 
+%% [ nu_filter:generate_random_event(<<1:256>>, [{year, Y}])
 %%   || Y <- lists:seq(1970,2020) ].
 %% '''
 %% @end
 %%--------------------------------------------------------------------
 -spec generate_random_event(binary(), proplists:proplists()) -> #event{}.
 generate_random_event(PrivateKey, Opts) ->
-    RandomContent = << <<($a + rand:uniform(25))>> 
+    RandomContent = << <<($a + rand:uniform(25))>>
                       || _ <- lists:seq(1,rand:uniform(50)) >>,
     Content = proplists:get_value(content, Opts, RandomContent),
     Tags = proplists:get_value(tags, Opts, []),
@@ -216,7 +314,7 @@ generate_random_event(PrivateKey, Opts) ->
     Event = #event{ created_at = {{Year,Month,Day},{Hour,Minute,Second}},
                     kind = Kind,
                     tags = Tags,
-                    content = Content 
+                    content = Content
                   },
     {ok, EncodedEvent} = nostrlib:encode(Event, [{private_key, PrivateKey}]),
     {ok, E, _} = nostrlib:decode(EncodedEvent),
@@ -249,7 +347,7 @@ match_test() ->
                                                ,{kind,text_note}
                                                |RandomEventOpts])
                          || H <- lists:seq(1,5) ],
-    
+
     % Generate 5 random event set_metadata
     RandomEvent_Meta = [ generate_random_event(PrivateKey_01
                                               ,[{hour, H}
@@ -258,8 +356,8 @@ match_test() ->
                          || H <- lists:seq(1,5) ],
 
     % we have now 10+1 random events
-    RandomEvents = RandomEvent_Note 
-        ++ RandomEvent_Meta 
+    RandomEvents = RandomEvent_Note
+        ++ RandomEvent_Meta
         ++ [FixedEvent_01],
 
     % extract the event id, we must be sure the id is always the same,
@@ -288,13 +386,13 @@ match_test() ->
     ?assertEqual(5, length(match(RandomEvents, [Filter_02]))),
     Filter_03 = #filter{ kinds = [text_note] },
     ?assertEqual(6, length(match(RandomEvents, [Filter_03]))),
-    
+
     % let check if we can filter authors
     Filter_04 = #filter{ authors = [PublicKey_01] },
     ?assertEqual(11, length(match(RandomEvents, [Filter_04]))),
     Filter_05 = #filter{ authors = [<<3:256>>] },
     ?assertEqual(0, length(match(RandomEvents, [Filter_05]))),
-    
+
     % let check if we can filter since and until, we should find 2
     % value from the events we generated.
     Filter_06 = #filter{ since = 1577840401, until = 1577840401 },
@@ -307,7 +405,16 @@ match_test() ->
     % here we check until, we should find 2 random events + the fixed
     % one.
     Filter_08 = #filter{ until = 1577840401 },
-    ?assertEqual(3, length(match(RandomEvents, [Filter_08]))).
+    ?assertEqual(3, length(match(RandomEvents, [Filter_08]))),
 
+    % we can now check the limit.
+    Filter_09 = #filter{ limit = 0 },
+    ?assertEqual(0, length(match_limit(RandomEvents, [Filter_09]))),
 
+    % the last limit should be used.
+    Filter_10 = [#filter{ limit = 1 }, #filter{ limit = 5}],
+    ?assertEqual(5, length(match_limit(RandomEvents, Filter_10))),
 
+    % by default, no limit is applied and we send all events.
+    Filter_11 = #filter{},
+    ?assertEqual(11, length(match_limit(RandomEvents, [Filter_11]))).

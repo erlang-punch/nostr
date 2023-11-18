@@ -763,3 +763,38 @@ do. Unfortunately, I think I will need to check tags. Regarding limit,
 but I need to implement the whole behavior.
 
 == 2023-11-18: Shortcut_24_47
+
+Let add the filter limit support now. Okay, I don't remember what is
+the function to take a number of fixed numbers of elements from a
+list... No problem, I will just create a quick one. Done.
+
+== 2023-11-18: Shortcut_24_48
+
+Add the test for match_limit function... And it's done. It's not
+perfect AT ALL but it works; we'll optimize that later. We have now a
+way to filter our events, that also means... A big part of our server
+should work. The last big problem to solve is the storage.
+
+nu_filter module must also be renamed to nostr_relay_filter or
+something like that. Our custom relay created previously should also
+be renamed and will replace the old one.
+
+Anyway, another big cleanup will be required soon, working without
+designing something before is always messy, that's the big drawback of
+coding "PoC" or coding in hurry. It's hard to follow. At least, here,
+we have all session recorded! :')
+
+== 2023-11-18: Shortcut_24_49
+
+Let try to add our working module into the relay... Well, it seems
+it's working! The code is dirty as hell... But it works! Like Joe
+said, make it work, then make it beautiful. At least, we can now
+create subscription, so we can deploy a first service and test
+it. Great right? Now things will become interesting, we will need to
+store our data in a safe place, manage evolution of our application
+and so on. Don't know if it will be release soon though, but quite
+happy to see it moving.
+
+Tests are passing. I know, that's not really a reference right now,
+with all the mess around, but we did not destroy our last
+versions. Next shortcut will focus on cleanup things.

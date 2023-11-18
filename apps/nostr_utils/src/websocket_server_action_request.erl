@@ -1,7 +1,7 @@
 %%%===================================================================
 %%% @author Mathieu Kerjouan <contact at erlang-punch.com>
 %%% @copyright (c) 2023 Erlang Punch
-%%% @doc 
+%%% @doc
 %%%
 %%% This module is part of nip01 implementation, and add requests
 %%% subscriptions support. The goal here is to manage subscriptions
@@ -28,22 +28,27 @@
 init(#request{ filter = Filter } = Request, #{ ?MODULE := Subscriptions } = State) ->
     ?LOG_DEBUG("~p", [{?MODULE, self(), Request, State}]),
     % we are fetching all events based on the filter
-    _Events = get_events(Filter#filter.event_ids),
+    EventList = list_events(),
+
+    % let try to filter our events
+    FilteredEvents = nu_filter:match(EventList, Filter),
+
     Events = [ #subscription{ id = Request#request.subscription_id
-                            , content = Event 
-                            } || Event <- list_events() 
+                            , content = Event
+                            } 
+               || Event <- FilteredEvents
              ],
 
     % because we don't have any other events, we can prepare an EOSE
     % message
     Eose = #eose{ id = Request#request.subscription_id},
 
-    case Subscriptions of 
+    case Subscriptions of
         % a timer is already configured and subscriptions is a list
         #{ timer := {interval, _Ref}
          , subscriptions := Subs } ->
             NewSubs = Subs#{ Request#request.subscription_id => Request },
-            NewStore = Subscriptions#{ subscriptions => NewSubs 
+            NewStore = Subscriptions#{ subscriptions => NewSubs
                                      , updated_at => erlang:system_time()
                                      },
             {stop, Events ++ [Eose], State#{ ?MODULE => NewStore }};
@@ -54,8 +59,8 @@ init(#request{ filter = Filter } = Request, #{ ?MODULE := Subscriptions } = Stat
             {ok, Ref} = timer_create({subscriptions, update}),
             NewSubs = #{ Request#request.subscription_id => Request },
             NewStore = #{ timer => Ref
-                        , subscriptions => NewSubs 
-                        , updated_at => erlang:system_time() 
+                        , subscriptions => NewSubs
+                        , updated_at => erlang:system_time()
                         },
             {stop, Events ++ [Eose], State#{ ?MODULE => NewStore }}
     end;
@@ -65,10 +70,15 @@ init(#request{ filter = Filter } = Request, #{ ?MODULE := Subscriptions } = Stat
 %  key with module name in the map.
 init(#request{ filter = Filter } = Request, State) ->
     % we are fetching all events based on the filter
-    _Events = get_events(Filter#filter.event_ids),
+    EventList = list_events(),
+
+    % let try to filter our events
+    FilteredEvents = nu_filter:match_limit(EventList, Filter),
+
     Events = [ #subscription{ id = Request#request.subscription_id
-                            , content = Event 
-                            } || Event <- list_events() 
+                            , content = Event
+                            } 
+               || Event <- FilteredEvents
              ],
 
     % because we don't have any other events, we can prepare an EOSE
@@ -78,7 +88,7 @@ init(#request{ filter = Filter } = Request, State) ->
     {ok, Ref} = timer_create({subscriptions, update}),
     NewSub = #{ Request#request.subscription_id => Request},
     NewStore = #{ timer => Ref
-                , subscriptions => NewSub 
+                , subscriptions => NewSub
                 , updated_at => erlang:system_time()
                 },
     {stop, Events ++ [Eose], State#{ ?MODULE => NewStore }};
@@ -100,7 +110,7 @@ init(#close{ subscription_id = _Id }, State)
 % subscriptions.
 init(#close{ subscription_id = Id } = Close
     ,#{ ?MODULE := #{ timer := Timer
-                    , subscriptions := Subs 
+                    , subscriptions := Subs
                     }
       } = State) ->
     ?LOG_DEBUG("~p", [{?MODULE, self(), Close, State}]),
@@ -117,7 +127,7 @@ init(#close{ subscription_id = Id } = Close
                            _ -> Timer
                        end,
             NewStore = #{ timer => NewTimer
-                        , subscriptions => NewSubs 
+                        , subscriptions => NewSubs
                         , updated_at => erlang:system_time()
                         },
             NewState = State#{ ?MODULE => NewStore },
@@ -146,7 +156,7 @@ websocket_info({subscriptions, update} = Args, #{ ?MODULE := Store } = State) ->
     ?LOG_DEBUG("~p", [{?MODULE, self(), websocket_info, 2, Args, State}]),
     Subs = maps:get(subscriptions, Store, #{}),
     NewSubs = maps:map(fun subscriptions_update/2, Subs),
-    {[], State#{ ?MODULE => Store#{ subscriptions => NewSubs 
+    {[], State#{ ?MODULE => Store#{ subscriptions => NewSubs
                                   , updated_at => erlang:system_time()
                                   }}}.
 
@@ -176,16 +186,16 @@ list_events() ->
     mnesia:dirty_select(event, [{'$1', [], ['$1']}]).
 
 %%--------------------------------------------------------------------
-%% @hidden
-%% @doc return events based on their ids.
-%% @end
+%% hidden
+%% doc return events based on their ids.
+%% end
 %%--------------------------------------------------------------------
-get_events(Ids) ->
-    lists:flatten([ get_event(Id) || Id <- Ids ]).
+% get_events(Ids) ->
+%     lists:flatten([ get_event(Id) || Id <- Ids ]).
 
 %%--------------------------------------------------------------------
-%% @doc return one event based on its id.
-%% @end
+%% doc return one event based on its id.
+%% end
 %%--------------------------------------------------------------------
-get_event(Id) ->
-    mnesia:dirty_read(event, Id).
+% get_event(Id) ->
+%     mnesia:dirty_read(event, Id).
