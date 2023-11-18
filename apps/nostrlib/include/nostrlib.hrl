@@ -114,11 +114,11 @@
 %%--------------------------------------------------------------------
 %% A full filter record.
 %%--------------------------------------------------------------------
--record(filter, { event_ids       = [] :: decoded_event_ids()
-                , authors         = [] :: decoded_authors()
-                , kinds           = [] :: decoded_kinds()
-                , tag_event_ids   = [] :: decoded_tag_event_ids()
-                , tag_public_keys = [] :: decoded_tag_event_public_keys()
+-record(filter, { event_ids       = undefined :: decoded_event_ids()
+                , authors         = undefined :: decoded_authors()
+                , kinds           = undefined :: decoded_kinds()
+                , tag_event_ids   = undefined :: decoded_tag_event_ids()
+                , tag_public_keys = undefined :: decoded_tag_event_public_keys()
                 , since           = undefined :: decoded_since()
                 , until           = undefined :: decoded_until()
                 , limit           = undefined :: decoded_limit()

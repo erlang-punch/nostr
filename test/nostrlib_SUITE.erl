@@ -178,7 +178,7 @@ encode_request(_Config) ->
         = nostrlib:encode(#request{subscription_id = <<"1234">>, filter = []}, Opts),
 
     % a filter can't be null
-    {error, [{filter, #{}}]}
+    {ok,<<"[\"REQ\",\"1234\",{}]">>}
         = nostrlib:encode(#request{subscription_id = <<"1234">>}, Opts),
 
     % limit can't be negative
@@ -494,16 +494,23 @@ decode_request(_Config) ->
     {ok, #request{filter = #filter{tag_event_ids = [<<1:256>>]}}, _}
         = nostrlib:decode(thoas:encode([<<"REQ">>, <<"test">>, #{ <<"#e">> => [nostrlib:binary_to_hex(<<1:256>>)] } ])),
 
-    {ok, #request{filter = #filter{event_ids = [<<1:256>>]}}, _}
+    {ok, #request{filter = #filter{ event_ids = [<<1:256>>]
+                                  }}, _}
         = nostrlib:decode(thoas:encode([<<"REQ">>, <<"test">>, #{ <<"ids">> => [nostrlib:binary_to_hex(<<1:256>>)] } ])),
 
-    {ok, #request{filter = #filter{authors = [<<1:256>>]}}, _}
+    {ok, #request{filter = #filter{ authors = [<<1:256>>]
+                                  }}, _}
         = nostrlib:decode(thoas:encode([<<"REQ">>, <<"test">>, #{ <<"authors">> => [nostrlib:binary_to_hex(<<1:256>>)] } ])),
 
     {ok,#request{subscription_id = <<"test">>,
-             filter = #filter{event_ids = [],authors = [],kinds = [],
-                              tag_event_ids = [],tag_public_keys = [],since = undefined,
-                              until = undefined,limit = undefined}}, []}
+             filter = #filter{ event_ids = undefined
+                             , authors = undefined
+                             , kinds = undefined
+                             , tag_event_ids = undefined
+                             , tag_public_keys = undefined
+                             , since = undefined
+                             , until = undefined,limit = undefined 
+                             }}, []}
         = nostrlib:decode(thoas:encode([<<"REQ">>, <<"test">>, #{}])).
 
 %%--------------------------------------------------------------------

@@ -729,4 +729,37 @@ will deal with since, until and limit later.
 
 == 2023-11-18: Shortcut_24_44
 
+Let continue to work on filtering test. Okay, that looks good. We have
+now a dummy filter to filter events based on nostr spec. Few tests are
+needed but it looks good. The big problem is when generating
+events. Need to add tag support now... Or not for the moment (I think
+I will need to create some function helpers there). Let switch to
+since, until and limit.
 
+I did a mistake when I read the specification. I mixed AND and OR when
+dealing with lists of items in filters and list of filters. Need to
+fix that.
+
+== 2023-11-18: Shortcut_24_45
+
+Some bug to fix. I probably did a mistake on the filter checks. I will
+need to modify the filter specification. Indeed, "it can have the
+following attributes" means some fields can be undefined, in this
+case, the default data-structure used (record), should deal with that.
+
+It was a bit more complicated than expected but it should now be
+fixed. We also have now a practically complete random event generator
+(only tags are now missing).
+
+== 2023-11-18: Shortcut_24_46
+
+Let check our new filter! It looks better, but I'm not sure if its the
+behavior we are looking for. I will probably need to check other
+implementation as well.
+
+Great! We just finished to test event_ids, kinds, authors, since and
+until fields for the filters. Tags and limits are the last one to
+do. Unfortunately, I think I will need to check tags. Regarding limit,
+but I need to implement the whole behavior.
+
+== 2023-11-18: Shortcut_24_47

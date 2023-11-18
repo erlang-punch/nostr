@@ -157,8 +157,6 @@ encode_request(#request{ subscription_id = <<SubscriptionId/bitstring>>
     case encode_filters(Filter) of
         {ok, []} ->
             {error, [{filter, []}]};
-        {ok, F} when F =:= #{} ->
-            {error, [{filter, #{}}]};
         {ok, F} ->
             {ok, [<<"REQ">>, SubscriptionId, F]};
         Elsewise -> Elsewise
