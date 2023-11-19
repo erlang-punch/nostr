@@ -227,7 +227,7 @@ the application conversion to release.
 So, in ~25minutes we converted nostr monolytic application to an
 Erlang releases. Now, nostr, nostr_client, nostr_relay and bech32 are
 isolated application. It will be easier to export and reuse them in
-other projects. 
+other projects.
 
 == 2023-10-01: Shortcut_24/12
 
@@ -303,3 +303,564 @@ nostr_client_connection is now using gen_statem behavior and is
 working correctly, at least with few open relays. pg groups should
 also be modified, creating complex group names is not the best thing
 to do. (just a quick modification on pg name).
+
+== 2023-10-27: Shortcut_24_17
+
+I will work on nostr_relay today, after having reviewed by code on
+nostr_client, I think creating a router for nostr_relay will be
+easier. In fact nostr_relay was just a PoC... So, there are not so
+much features. Let do that.
+
+nostr_relay is using cowboy with websocket support. When a client is
+connecting to it, a new websocket is automatically opened using
+nostr_relay_handler. Because we want to support multi-domain in a near
+future, we will need to modify nostr_relay_listener. This module is
+containing cowboy configuration. As you can see,
+`nostr_relay_listener:routes/1` is configuring the routes, this part
+of the code will need to be modified. Instead of setting a fixed list
+of routes, we will match all routes (and all domains) and we will
+forward them to `nostr_relay_handler` module. This module will be in
+charge of routing the messages received by the client (including
+domain name and so on), and parse them correctly.
+
+Now the question is, where nostr_relay will find these information? In
+Mnesia. Everything will be stored in mnesia and it should be okay for
+the moment.
+
+Another question... how to add support for nips? Well, we will need to
+craft a new dedicated behavior like `nostr_relay_nip`. When a new
+behavior needs to be implemented, we would be able to create something
+like `nostr_relay_nip_01` or `nostr_relay_nip_02`. Anyway, that's not
+the topic for the moment. At first, we need to parse our messages and
+forward/store them somewhere.
+
+`websocket_client` module was created under `nostr_utils` application
+to help create websocket connection from scratch. It will be easier to
+test the server with that. In fact, I don't know if curl is supporting
+websocket now... Not sure. Anyway, here we will have our own small
+websocket to craft request and hack around.
+
+== 2023-10-27: Shortcut_24_18
+
+Let continue to work on this small websocket client. It works locally,
+without TLS but has some issue with secure connection, probably
+because no certificates are passed as arguments. So, it looks "good",
+need to try it a little bit more...
+
+== 2023-10-27: Shortcut_24_19
+
+The small websocket client is looking great, but we need to test it
+more, and check if it works on real world server. It works! We can now
+connect to a server and craft our payloads! Let test with a
+binary. Great, binary messages are not accepted by the remote
+server. We can now create a small websocket server, to test our future
+client. It should be flexible enough to allow some weird configuration
+and input.
+
+It seems we have something, but it does not work yet. We will improve
+it in a second time.
+
+== 2023-10-27: Shortcut_24_20
+
+Let continue to work on our small websocket server. Okay! It looks
+very good. I just need to fix a small annoying bug when we pass an url
+with ending without "/". Great! We can now design our router based on
+the nostr specification, perhaps adding few documentation can help...
+
+A short relecture will be required before continuing this code, and I
+need a longer break, tea time <3, by the way, we should also add few
+simple test to be sure everything is working well.
+
+== 2023-10-27: Shortcut_24_21
+
+Let simulate a router using websocket_client and websocket_server
+modules. Those messages should follow some format or be validated
+somewhere. When we are receiving a message, this message needs to be
+checked using different kind of methods, as a pipeline.
+
+`websocket_server_filter` module will be our first guard, checking if
+the message is correct or not. Don't forget this application will need
+to support many domains and path, so, here, this is just an example of
+usage. Trying to send binary data to the server is not supported and
+returns a NOTICE message to the client. How to represent a pipeline?
+As a list of activated modules from one enabled relay.
+
+   [ {Module1, Param1}
+   , {Module2, Param2}
+   , {Module3, Param3} ]
+
+Where `Module1` is a behavior and MUST return a valid data to pass to
+the next module.
+
+== 2023-10-27: Shortcut_24_22
+
+Let just, at first, try to parse a request and store it somewhere when
+valid. Okay, it works but I think I will read a bit all the updates
+added to the specification (NIPs), just to be sure I'm not going into
+the wall. For example, nip01 only support kind 0 and 1, a function
+callback could be created like in a "filter" module, saying this
+module only support a restricted list of Kinds.
+
+  kinds() -> [0,1].
+
+Same could be applied for events. Yeah, it looks like a plugin Elixir,
+but I think I will need to make it less flexible (or not). We'll see
+that later.
+
+== 2023-10-27: Shortcut_24_23
+
+We have an idea how things are working now but what's happening when
+we send client like data? We should probably test that before doing
+more improvement then we will deal with the storage part.
+
+Just played around with mnesia to find the best way to store these
+data. It should be good on the next pomodoro session.
+
+== 2023-10-27: Shortcut_24_24
+
+Let continue to work on mnesia table to store our data. Great! If an
+event is already present in the database, we have now a message saying
+that to the client. That's good, but not enough.
+
+Let redesign this part of the code, it's becoming too complex.
+
+== 2023-10-27: Shortcut_24_25
+
+Let create some testing there to avoid using the shell. Our code is
+currently working! It's not glorious at all because it lacks lot of
+documentation and test, but at least, we can write an event in the
+database.
+
+OK message specifications are missing, it needs to be created and we
+must have a way to encode/decode it properly.
+
+== 2023-10-27: Shortcut_24_26
+
+Let implement "OK" messages, message sent by relays to clients. The
+encoding part is practically done... So, it looks very good! We have
+implemented a lot of crazy stuff during the latest shortcuts. We will
+continue in another one! :)
+
+== 2023-10-28: Shortcut_24_27
+
+Let continue to work on our websocket server model. I really would
+like to have a kind of module system at the end of this pomodoro,
+returning an issue if something goes wrong (notice) or continuing
+until we reach something valid.
+
+Creating a behavior is not an easy task, even more when you don't
+really master the protocol. The idea here is to create a pipeline of
+actions, each action will return one kind of data, and main loop will
+be in charge of dealing with them. Offering the global state by
+default is perhaps not the best idea, I should probaly split it in two
+part, one local state for the execution (directly offered to the
+callback) and one extra state with the "whole" view of the connection,
+used for example, when we need to deal with low level features or fine
+grained websocket interaction.
+
+== 2023-10-28: Shortcut_24_28
+
+Let continue to work on the pipeline execution and find a way to deal
+with those "annoying" states. Let try with this really small subset of
+nip01. We will just encode ok and notice messages, without altering
+the global state. We now need to adapt websocket_server_filter... Or
+create a new one.
+
+We have something that just "work" only for a small subset, but it
+"works". Let try to improve that. FYI, I don't think it will be a
+quite performant implementation, but we will improve that later.
+
+== 2023-10-28: Shortcut_24_29
+
+In this session we will continue to test our nostr relay behavior. Let
+write some test. Hmm, it looks like we have a small bug there, since
+we added an explicit call to another module (to store data). Will try
+to fix it before the next shortcut. It looks good! :)
+
+== 2023-10-28: Shortcut_24_30
+
+Our pipeline is working, it's just a first version, but I think we can
+use it without problem. Let try to generate some data and insert them
+into the database.
+
+Events are correctly inserted! Let create the other response from
+relay to client. At this time, without testing, it looks "good", but I
+will need to create more test and specifications.
+
+I would like to use mnesia by default, but on big server, I'm not sure
+it will be a good idea, so, creating a kind of storage interface could
+be quite helpful. Mnesia would be the main store to keep only daily or
+hourly events (like a cache), others events will be stored on one or
+many places (postgresql, buckets, filesystems...). This MUST be
+flexible to allow encryption by default.
+
+Next, I will need to think about multi-domain and path support. Stored
+these information in a configuration file first (synchronized with
+mnesia) can be a good start. We'll see that in another shortcut.
+
+== 2023-10-28: Shortcut_24_31
+
+We can now store event in a better way than before, but now, we need
+to deal with subscription. Indeed, users want to have access to some
+events! To be honest, I don't know how to do that right now with this
+new method, let try doing something anyway... Let try to fetch a list
+of events.
+
+Hmm... It was a bit stupid to insert created_at as Erlang datetime
+format, storing it as unix string would have been better there. I
+really think this part of the code will need some TDD, because I
+really don't know how to deal with the logic. What's happening if we
+have a list of valid ids on the server but with a different timestamp
+range?
+
+Okay, we have lot of things to do there. Encoder/decoder for filters
+don't seem correct at first glance for the server part. The code is
+"working" but more is required. All the logic part needs to be
+implemented. We'll see that in another shortcut!
+
+== 2023-10-28: Shortcut_24_32
+
+Back for another shortcut session. We need to correct how I store
+created_at, instead of using Erlang notation, we will keep epoch one
+(from unix). After that, we will work on an interface to filter/get
+data, if we have time, we'll work with qlc.
+
+I started to add labels for filters, as reminder, a label is a kind of
+metadata used to give more information when decoding a payload, for
+example the difference between since/until. This will be used to
+create limits.
+
+== 2023-10-28: Shortcut_24_33
+
+Let continue to add filter labels then we will switch to data storage
+and filtering. Now, we can have labels when decoding filters! It will
+be quite useful. Note: I think I will find other bugs, this part of
+the code is not completely tested.
+
+To answer correctly to the client, I will need to alter global state
+by adding, at least, the connection and the websocket reference.
+
+== 2023-10-28: Shortcut_24_34
+
+Let add http connection and websocket reference into the global
+state. It seems we can't do that... Instead, I will need to create a
+list of answers to return. I think I need a small break. I have some
+difficulties to do something simple. Woohoo! It works! I need a small
+break now, but next:
+
+ - cleaning up a little bit this dirty method
+ - create a subscription table where subscriptions are stored
+ - one connection = many subscription
+ - when a connection is terminated, susbscriptions are removed
+ - and much more...
+
+== 2023-10-28: Shortcut_24_35
+
+It seems I don't need to create a table for subscriptions. Indeed,
+because subscriptions are tighly linked to a connection, we can store
+them directly in the websocket state, and set a small timer sending a
+message every seconds to fetch latest values from subscriptions. It
+will also be read-only, so, we can use mnesia:dirty_* functions. Let
+try that.
+
+Okay, it looks good and it could work. I don't know if it could
+support an high amount of message though. It will require some tests
+and benchmark here. Limitations will also be required, I think 10
+subscriptions is a "correct" amount by default.
+
+== 2023-10-28: Shortcut_24_36
+
+Let document and try to find some bugs in our implementation. When
+done, I think it will be the time to implement it in the real world
+(in nostr_relay application).
+
+Okay! It seems we have our skeleton for nip01 on the relay side. It
+supports a small subset of all function. In fact, it has been
+implemented in a test module, but the ideas are there. A big cleanup
+will be required to remove useless stuff and perhaps a new one.
+
+Lot of tests will be required, to check if it's working, but we have a
+small websocket client now! It will be easier to craft a full test
+suite and simulate real world environment.
+
+Note: a quick update on websocket_info event management! :)
+
+== 2023-10-28: Shortcut_24_37
+
+Let continue to work on our websocket management. That's a bit
+complicated, but we must find a solution to make it easier. We are
+receiving two timers, that's "normal", my code is still quite
+dirty... Or not? Weird behavior with timer, I will check that later.
+
+websocket_info function can now forward specific messages to their own
+modules instead of modifying directly websocket_server module. When a
+callback message is received, websocket_info is called in the module
+defined in the second element of the tuple.
+
+What does it means for subscription? Well, that means we can deal with
+all the subscription stuff directly in the module itself instead of
+altering the main loop. websocket loop from websocket_server module
+needs to be isolated in its own module though.
+
+== 2023-10-28: Shortcut_24_38
+
+Let redesign websocket_server_action_request with a better
+subscription management.
+
+We should also do the same for the terminate function, when a module
+is present in the pipeline, terminate function must call them one by
+one. It will imply something else: execution order. A subscription is
+identified by an unique identifier per connection, a list is not
+really useful there, and a map is better solution.
+
+A timestamp is also required for each subscription, to have an idea
+when it was executed for the last time. Indeed, if we are polling
+them, the state must be updated with an information when the last
+extract was made. We will need to manage the close feature now.
+
+== 2023-10-28: Shortcut_24_39
+
+Let continue on close message implementation. A client can now add a
+new subscriptions and remove them. At first glance, it looks "good",
+then we need to deal with the filters... And that's not the same
+story! In fact, only events should be stored in the database,
+subscriptions and other things like that are not useful, except if we
+add a feature to store filters (when an user with a specific key
+connect, he has his subscriptions back).
+
+All the functions/steps created there are quite dirty and must be
+cleaned. One module MUST manage its own state with a dedicated
+function (documented if possible).
+
+Another thought... What if when a module is activated (or present in
+the pipeline), its name is automatically created with a default value
+in the state? Or, like I said previously in other shortcut, create a
+"module local state" and a "global state". The global state will stay
+unmodified, only "module local state" could be modified.
+
+This code should work:
+
+  ```erlang
+  websocket_server_action_store:start().
+  r3:do(compile).
+  rr(nostrlib).
+  f().
+  application:stop(ranch).
+  application:start(ranch).
+  {ok, S} = websocket_server:start("localhost", 8081).
+  {ok, C} = websocket_client:start("ws://localhost:8081").
+  {ok, E1} = nostrlib:encode(#event{ content = <<"test">>, kind = text_note}, [{private_key, <<1:256>>}]).
+  {ok, E2} = nostrlib:encode(#event{ content = <<"test">>, kind = text_note}, [{private_key, <<2:256>>}]).
+  {ok, E3} = nostrlib:encode(#event{ content = <<"test">>, kind = text_note}, [{private_key, <<3:256>>}]).
+  {ok, E4} = nostrlib:encode(#event{ content = <<"test">>, kind = text_note}, [{private_key, <<4:256>>}]).
+  [ websocket_client:send(C, binary_to_list(X)) || X <- [E1,E2,E3,E4] ].
+
+  {ok, Req} = nostrlib:encode(#request{ subscription_id = <<"test">>, filter = #filter{ event_ids = [ <<1:256>>]} }).
+  websocket_client:send(C, binary_to_list(Req)).
+
+  {ok, Req2} = nostrlib:encode(#request{ subscription_id = <<"test2">>, filter = #filter{ event_ids = [ <<1:256>>]} }).
+  websocket_client:send(C, binary_to_list(Req2)).
+
+  {ok, Close} = nostrlib:encode(#close{ subscription_id = <<"test">> }).
+  websocket_client:send(C, binary_to_list(Close)).
+  {ok, Close2} = nostrlib:encode(#close{ subscription_id = <<"test2">> }).
+  websocket_client:send(C, binary_to_list(Close2)).
+  ```
+
+== 2023-10-28: Shortcut_24_40
+
+Debugging part on subscriptions update. Not really usefull to have
+this timestamp on each requests... I think we can move it somewhere
+else. We have a s* ton of code deduplication. Timer is not created
+when we want to create a new subscription. It will be "funny" to clean
+this mess! :')
+
+Some bugs have been fixed, and the relay is starting to look great. I
+hope I will have enough time to create a subset of the filtering
+logic.
+
+== 2023-10-28: Shortcut_24_41
+
+We need to implement the logic part of the filters, for doing that, I
+will create a new module to test it called nu_filter. It will be my
+"simulation" module to break stuff. I will use a kind of TDD method
+there, it will be easier and probably better. What we have, should
+produce that, and so on.
+
+We should probably use proper or another module to generate this kind
+of annoying data. But it should be enough for the moment. We can then
+generate a lot of data.
+
+== 2023-11-18: Shortcut_24_42
+
+Let continue to work on random event generation, to have a way to
+check our server and create some test suites. (sorry, forgot to put
+the pomodoro...). So we have a way to generate fixed events based on a
+private key and fixed timestamp. Now, we can deal with the logic
+behind the filtering. The best way to have something stable here is to
+use TDD (test driven development). Because we will need to check many
+different situations, TDD will offer enough flexibility to at least
+found a good way to deal with the different path offered by our
+implementation.
+
+Furthermore, TDD will also challenge our internal API, if our code is
+too complex, our tests will be complex as well, and we will need to
+refactor it. Here, we have defined 3 new functions, one to filter a
+list of events against a list of filters, another one to filter one
+event against a list of filter, and the last one if to check if an
+event match one filter. With this configuration, we could easily
+insert this filtering into a guard, and if you already know QLC, you
+will understand where I want to go.
+
+== 2023-11-18: Shortcut_24_43
+
+Let continue to work on our event/filter testing. Okay, we have now a
+way to check the event ids present in the filter, but also the authors
+(with their public key(s)). This is not optimized at all,
+lists:filter/2 function will check the whole list. In fact, we must
+return true when we match the value, or false if we continue until the
+end of the list. Why creating to separate functions? Well, say we want
+to limit the size of the filtering list, we can do it directly on the
+parser, but also here. Those functions can have an optional field (in
+the future) to pass fine grained options, per user for example
+
+Next fields to check are kinds, tag_event_ids and tag_public_keys. We
+will deal with since, until and limit later.
+
+== 2023-11-18: Shortcut_24_44
+
+Let continue to work on filtering test. Okay, that looks good. We have
+now a dummy filter to filter events based on nostr spec. Few tests are
+needed but it looks good. The big problem is when generating
+events. Need to add tag support now... Or not for the moment (I think
+I will need to create some function helpers there). Let switch to
+since, until and limit.
+
+I did a mistake when I read the specification. I mixed AND and OR when
+dealing with lists of items in filters and list of filters. Need to
+fix that.
+
+== 2023-11-18: Shortcut_24_45
+
+Some bug to fix. I probably did a mistake on the filter checks. I will
+need to modify the filter specification. Indeed, "it can have the
+following attributes" means some fields can be undefined, in this
+case, the default data-structure used (record), should deal with that.
+
+It was a bit more complicated than expected but it should now be
+fixed. We also have now a practically complete random event generator
+(only tags are now missing).
+
+== 2023-11-18: Shortcut_24_46
+
+Let check our new filter! It looks better, but I'm not sure if its the
+behavior we are looking for. I will probably need to check other
+implementation as well.
+
+Great! We just finished to test event_ids, kinds, authors, since and
+until fields for the filters. Tags and limits are the last one to
+do. Unfortunately, I think I will need to check tags. Regarding limit,
+but I need to implement the whole behavior.
+
+== 2023-11-18: Shortcut_24_47
+
+Let add the filter limit support now. Okay, I don't remember what is
+the function to take a number of fixed numbers of elements from a
+list... No problem, I will just create a quick one. Done.
+
+== 2023-11-18: Shortcut_24_48
+
+Add the test for match_limit function... And it's done. It's not
+perfect AT ALL but it works; we'll optimize that later. We have now a
+way to filter our events, that also means... A big part of our server
+should work. The last big problem to solve is the storage.
+
+nu_filter module must also be renamed to nostr_relay_filter or
+something like that. Our custom relay created previously should also
+be renamed and will replace the old one.
+
+Anyway, another big cleanup will be required soon, working without
+designing something before is always messy, that's the big drawback of
+coding "PoC" or coding in hurry. It's hard to follow. At least, here,
+we have all session recorded! :')
+
+== 2023-11-18: Shortcut_24_49
+
+Let try to add our working module into the relay... Well, it seems
+it's working! The code is dirty as hell... But it works! Like Joe
+said, make it work, then make it beautiful. At least, we can now
+create subscription, so we can deploy a first service and test
+it. Great right? Now things will become interesting, we will need to
+store our data in a safe place, manage evolution of our application
+and so on. Don't know if it will be release soon though, but quite
+happy to see it moving.
+
+Tests are passing. I know, that's not really a reference right now,
+with all the mess around, but we did not destroy our last
+versions. Next shortcut will focus on cleanup things.
+
+== 2023-11-18: Shortcut_24_50
+
+Let do some cleanup! I know, that's annoying, but that's the rule when
+we create something without designing it first. By the way, this the
+50s shortcut, that means, ~25h of coding, less than a week of work and
+we solved so many things. Anyway, let start.
+
+Okay, so, we are moving one by one all modules/functions from our PoC
+called websocket_server to nostr_relay. It includes also to add some
+comments and specifications.
+
+== 2023-11-18: Shortcut_24_51
+
+Let continue to move websocket_server_* modules to nostr_relay.
+
+A part of the migration is progressing, but because we are changing
+everything, it takes time. That's normal, but it permits also to
+re-read our code, a kind of self made review. And it compiles. No test
+for the moment, but it will be done very soon.
+
+== 2023-11-18: Shortcut_24_52
+
+As you can see, using behaviors like feature makes things incredibly
+easy to migrate and move between projects, even when we are creating a
+PoC. In fact, if the main data-structure shared between modules has
+been correctly designed (or is flexible enough), things are moving
+fast.
+
+nip05 handler needs to be modified. This one is a bit special because
+it will ask the server for a json file using standard HTTP request, it
+will probably requires to modify a bit the logic with the handler.
+
+all important modules have been moved to nostr_relay, useless ones
+have been removed. A new module called websocket_server_module_echo
+has been created to let our small websocket_server implementation
+available for test.
+
+Now we need to fix nostr_relay application. And voilà, we should now
+have a relay running on localhost:4000 by default and it looks good!
+This relay will crash, for sure, because we don't added mnesia
+configuration/initialization, but the socket is open and it is ready
+to accept events.
+
+== 2023-11-18: Shortcut_24_53
+
+Let add mnesia initialization part. When we start the application,
+every modules should be automatically initialized if they have some
+requirement, creating a function like init/0 could solve this
+issue... Or the initialization will be done on the first call.
+
+At first glance, it looks good. It seems we have a part of our nostr
+relay working. All modules are initialized when the application is
+started. just... Let check if events are in the db. That's the
+case. Next step: test a random client on this relay.
+
+== 2023-11-18: Shortcut_24_54
+
+Fixing the test suite... Great. Starting nightmare engine, installing
+npm and trying to find a cool nostr client. rofl. desesperate
+rofl. Anyway, installed a new client, it seems it does not work
+correclty there, but lot of NIPs are still not supported.
+
+Some commands are not supported by the current session. We'll fix that
+in another shortcut. Quick note: it crashes because some kinds are not
+supported in nostr decoder. We will need to fix that later :)

@@ -164,7 +164,7 @@ encode_request() -> [].
 encode_request(_Config) ->
     PrivateKey = <<1:256>>,
     Opts = [{private_key, PrivateKey}],
-    
+
     % a subcription_id must be defined
     {error, [{subscription_id, undefined}]}
         = nostrlib:encode(#request{},Opts),
@@ -178,30 +178,30 @@ encode_request(_Config) ->
         = nostrlib:encode(#request{subscription_id = <<"1234">>, filter = []}, Opts),
 
     % a filter can't be null
-    {error, [{filter, #{}}]}
+    {ok,<<"[\"REQ\",\"1234\",{}]">>}
         = nostrlib:encode(#request{subscription_id = <<"1234">>}, Opts),
 
     % limit can't be negative
     {error,[{limit,-10}]}
         = nostrlib:encode(#request{ subscription_id = <<"test">>, filter = #filter{ limit = -10 }}),
-    
+
     % a limit is a positive integer
     {ok,<<"[\"REQ\",\"1234\",{\"limit\":10}]">>}
         = nostrlib:encode(#request{subscription_id = <<"1234">>, filter = #filter{ limit = 10 }}, Opts),
 
-    % since can't be an integer
-    {error,[{since,123}]}
-        =  nostrlib:encode(#request{ subscription_id = <<"test">>, filter = #filter{ since = 123 }}),
+    % since can be an integer
+    {ok,<<"[\"REQ\",\"test\",{\"since\":1577836800}]">>}
+        =  nostrlib:encode(#request{ subscription_id = <<"test">>, filter = #filter{ since = 1577836800 }}),
 
-    % since is an universal date
+    % since can also be an universal date
     {ok,<<"[\"REQ\",\"test\",{\"since\":1577836800}]">>}
         = nostrlib:encode(#request{ subscription_id = <<"test">>, filter = #filter{ since = {{2020,1,1},{0,0,0} }}}),
-    
-    % until can't be an integer
-    {error,[{until,123}]}
-        = nostrlib:encode(#request{ subscription_id = <<"test">>, filter = #filter{ until = 123 }}),
 
-    % until is an universal date
+    % until can be an integer
+    {ok,<<"[\"REQ\",\"test\",{\"until\":1577836800}]">>}
+        = nostrlib:encode(#request{ subscription_id = <<"test">>, filter = #filter{ until = 1577836800 }}),
+
+    % until can also be an universal date
     {ok,<<"[\"REQ\",\"test\",{\"until\":1577836800}]">>}
         = nostrlib:encode(#request{ subscription_id = <<"test">>, filter = #filter{ until = {{2020,1,1},{0,0,0} }}}),
 
@@ -228,7 +228,7 @@ encode_request(_Config) ->
     % an event id in a tag is a full address
     {ok,<<"[\"REQ\",\"test\",{\"#e\":[\"0000000000000000000000000000000000000000000000000000000000000001\"]}]">>}
         = nostrlib:encode(#request{ subscription_id = <<"test">>, filter = #filter{ tag_event_ids = [<<1:256>>] }}),
-    
+
     % a public key in a tag can't be a prefix
     {error,[{content,[<<0,0,0,0,0,0,0,1>>]}]}
         = nostrlib:encode(#request{ subscription_id = <<"test">>, filter = #filter{ tag_public_keys = [<<1:64>>] }}),
@@ -273,10 +273,10 @@ encode_subscription(_Config) ->
         = nostrlib:encode(#subscription{ id = <<"test">>
                                        , content = #event{ content = <<"hello">>
                                                          , kind = set_metadata
-                                                         , created_at = {{2020,1,1},{0,0,0}} 
+                                                         , created_at = {{2020,1,1},{0,0,0}}
                                                          }
                                        }, Opts),
-    
+
     {ok, Subscription}
         = nostrlib:encode(#subscription{ id = <<"test">>
                                        , content = Event }, Opts).
@@ -296,7 +296,7 @@ encode_notice(_Config) ->
     % a message must be defined
     {error, [{message, undefined}]}
         = nostrlib:encode(#notice{}),
-    
+
     % a message can't be an atom
     {error,[{message,test}]}
         = nostrlib:encode(#notice{ message = test }),
@@ -355,8 +355,8 @@ encode_event(_Config) ->
     {error,[{event_id,[]}]}
         = nostrlib:encode(#event{kind = set_metadata, content = <<>>, public_key = <<1:256>>
                                 , id = []}
-                         ,Opts),    
-    
+                         ,Opts),
+
     % encore a metadata event
     Event0 = #event{ kind = set_metadata
                    , content = thoas:encode(#{ about => <<"test">> })
@@ -429,11 +429,11 @@ decode_event() -> [].
 decode_event(_Config) ->
     {error,[{event,{missing,id}}]}
         = nostrlib:decode(thoas:encode([<<"EVENT">>, #{}])),
-    
+
     {error,[{event,{bad,id}},{labels,[]}]}
         = nostrlib:decode(thoas:encode([<<"EVENT">>, #{ id => <<"test">> }])).
-    
-    
+
+
 %%--------------------------------------------------------------------
 %% @doc
 %% @end
@@ -469,7 +469,7 @@ decode_notice() -> [].
 decode_notice(_Config) ->
     {ok,#notice{message = <<>>},[]}
         =  nostrlib:decode(thoas:encode([<<"NOTICE">>, <<>>])),
-    
+
     {ok,#notice{message = <<"test">>},[]}
         = nostrlib:decode(thoas:encode([<<"NOTICE">>, <<"test">>])).
 
@@ -494,16 +494,23 @@ decode_request(_Config) ->
     {ok, #request{filter = #filter{tag_event_ids = [<<1:256>>]}}, _}
         = nostrlib:decode(thoas:encode([<<"REQ">>, <<"test">>, #{ <<"#e">> => [nostrlib:binary_to_hex(<<1:256>>)] } ])),
 
-    {ok, #request{filter = #filter{event_ids = [<<1:256>>]}}, _}
+    {ok, #request{filter = #filter{ event_ids = [<<1:256>>]
+                                  }}, _}
         = nostrlib:decode(thoas:encode([<<"REQ">>, <<"test">>, #{ <<"ids">> => [nostrlib:binary_to_hex(<<1:256>>)] } ])),
 
-    {ok, #request{filter = #filter{authors = [<<1:256>>]}}, _}
+    {ok, #request{filter = #filter{ authors = [<<1:256>>]
+                                  }}, _}
         = nostrlib:decode(thoas:encode([<<"REQ">>, <<"test">>, #{ <<"authors">> => [nostrlib:binary_to_hex(<<1:256>>)] } ])),
 
     {ok,#request{subscription_id = <<"test">>,
-             filter = #filter{event_ids = [],authors = [],kinds = [],
-                              tag_event_ids = [],tag_public_keys = [],since = undefined,
-                              until = undefined,limit = undefined}}, []}
+             filter = #filter{ event_ids = undefined
+                             , authors = undefined
+                             , kinds = undefined
+                             , tag_event_ids = undefined
+                             , tag_public_keys = undefined
+                             , since = undefined
+                             , until = undefined,limit = undefined
+                             }}, []}
         = nostrlib:decode(thoas:encode([<<"REQ">>, <<"test">>, #{}])).
 
 %%--------------------------------------------------------------------

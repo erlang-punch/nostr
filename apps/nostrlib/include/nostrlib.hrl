@@ -12,8 +12,8 @@
 %% A macro used to translate a kind as integer or atom.
 %%--------------------------------------------------------------------
 -define(KIND(K_INTEGER, K_ATOM),
-  kind(K_INTEGER) -> K_ATOM;
-  kind(K_ATOM) -> K_INTEGER
+  kind(K_INTEGER) -> {ok, K_ATOM};
+  kind(K_ATOM) -> {ok, K_INTEGER}
 ).
 
 %%%===================================================================
@@ -114,11 +114,11 @@
 %%--------------------------------------------------------------------
 %% A full filter record.
 %%--------------------------------------------------------------------
--record(filter, { event_ids       = [] :: decoded_event_ids()
-                , authors         = [] :: decoded_authors()
-                , kinds           = [] :: decoded_kinds()
-                , tag_event_ids   = [] :: decoded_tag_event_ids()
-                , tag_public_keys = [] :: decoded_tag_event_public_keys()
+-record(filter, { event_ids       = undefined :: decoded_event_ids()
+                , authors         = undefined :: decoded_authors()
+                , kinds           = undefined :: decoded_kinds()
+                , tag_event_ids   = undefined :: decoded_tag_event_ids()
+                , tag_public_keys = undefined :: decoded_tag_event_public_keys()
                 , since           = undefined :: decoded_since()
                 , until           = undefined :: decoded_until()
                 , limit           = undefined :: decoded_limit()
@@ -161,6 +161,20 @@
                       , content = undefined :: decoded_subscription_content()
                       }).
 -type decoded_subscription() :: #subscription{ content :: decoded_subscription_content() }.
+
+%%--------------------------------------------------------------------
+%% A decoded "OK" message from relay to clients.
+%%--------------------------------------------------------------------
+-type decoded_ok_event_id() :: decoded_event_id().
+-type decoded_ok_accepted() :: boolean().
+-type decoded_ok_prefix()   :: binary().
+-type decoded_ok_message()  :: binary().
+-record(ok, { event_id = <<>>  :: decoded_ok_event_id()
+            , accepted = false :: decoded_ok_accepted()
+            , prefix   = <<>>  :: decoded_ok_prefix()
+            , message = <<>>   :: decoded_ok_message()
+            }).
+-type decoded_ok() :: #ok{}.
 
 %%--------------------------------------------------------------------
 %% A type representing all decoded messages available.

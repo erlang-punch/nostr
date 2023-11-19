@@ -136,6 +136,11 @@ encode(#eose{} = EOSE, Opts) ->
         {ok, Encoded} -> {ok, to_json(Encoded)};
         Elsewise -> Elsewise
     end;
+encode(#ok{} = OK, Opts) ->
+    case encode_ok(OK, Opts) of
+        {ok, Encoded} -> {ok, to_json(Encoded)};
+        Elsewise -> Elsewise
+    end;
 encode(_, _) ->
     {error, [{encode, unsupported}]}.
 
@@ -152,8 +157,6 @@ encode_request(#request{ subscription_id = <<SubscriptionId/bitstring>>
     case encode_filters(Filter) of
         {ok, []} ->
             {error, [{filter, []}]};
-        {ok, F} when F =:= #{} ->
-            {error, [{filter, #{}}]};
         {ok, F} ->
             {ok, [<<"REQ">>, SubscriptionId, F]};
         Elsewise -> Elsewise
@@ -304,6 +307,10 @@ encode_filter_tag_public_keys(#filter{ tag_event_ids = T }, _) ->
 encode_filter_since(#filter{ since = Since } = Filter, Buffer)
   when Since =:= undefined ->
     encode_filter_until(Filter, Buffer);
+encode_filter_since(#filter{ since = Since } = Filter, Buffer)
+  when is_integer(Since) andalso Since > 0 ->
+    Next = Buffer#{ <<"since">> => Since },
+    encode_filter_until(Filter, Next);
 encode_filter_since(#filter{ since = {{_,_,_},{_,_,_}} = Since } = Filter, Buffer) ->
     Timestamp = erlang:universaltime_to_posixtime(Since),
     Next = Buffer#{ <<"since">> => Timestamp },
@@ -317,6 +324,10 @@ encode_filter_since(#filter{ since = Since }, _Buffer) ->
 encode_filter_until(#filter{ until = Until } = Filter, Buffer)
   when Until =:= undefined ->
     encode_filter_limit(Filter, Buffer);
+encode_filter_until(#filter{ until = Until } = Filter, Buffer)
+  when is_integer(Until) andalso Until > 0 ->
+    Next = Buffer#{ <<"until">> => Until },
+    encode_filter_limit(Filter, Next);
 encode_filter_until(#filter{ until = {{_,_,_},{_,_,_}} = Until } = Filter, Buffer) ->
     Timestamp = erlang:universaltime_to_posixtime(Until),
     Next = Buffer#{ <<"until">> => Timestamp },
@@ -462,8 +473,13 @@ encode_event_kind(#event{ kind = undefined }, _Opts, _Buffer) ->
     {error, [{kind, undefined}]};
 encode_event_kind(#event{ kind = Kind } = Event, Opts, Buffer)
   when is_atom(Kind) ->
-    Next = Buffer#{ <<"kind">> => kind(Kind) },
-    encode_event_tags(Event, Opts, Next);
+    case kind(Kind) of
+        {ok, Encoded} ->
+            Next = Buffer#{ <<"kind">> => Encoded },
+            encode_event_tags(Event, Opts, Next);
+        {unknown, _} ->
+            {error, [{kind, Kind}]}
+    end;
 encode_event_kind(#event{ kind = Kind }, _, _) ->
     {error, [{kind, Kind}]}.
 
@@ -493,6 +509,10 @@ encode_event_created_at(#event{ created_at = undefined } = Event, Opts, Buffer) 
     NextEvent = Event#event{ created_at = UniversalTime },
     Next = Buffer#{ <<"created_at">> => CreatedAt },
     encode_event_public_key(NextEvent, Opts, Next);
+encode_event_created_at(#event{ created_at = CreatedAt } = Event, Opts, Buffer)
+  when is_integer(CreatedAt) andalso CreatedAt > 0 ->
+    Next = Buffer#{ <<"created_at">> => CreatedAt },
+    encode_event_public_key(Event, Opts, Next);
 encode_event_created_at(#event{ created_at = {{_,_,_},{_,_,_}} = CreatedAt } = Event, Opts, Buffer) ->
     Next = Buffer#{ <<"created_at">> => erlang:universaltime_to_posixtime(CreatedAt) },
     encode_event_public_key(Event, Opts, Next);
@@ -659,6 +679,118 @@ encode_tag_test() ->
      ].
 
 %%--------------------------------------------------------------------
+%%
+%%--------------------------------------------------------------------
+encode_ok(#ok{} = OK, Opts) ->
+    encode_ok_event_id(OK, Opts, [<<"OK">>]).
+
+encode_ok_event_id(#ok{ event_id = EventId } = OK, Opts, Buffer)
+  when is_binary(EventId) andalso size(EventId) =:= 32 ->
+    EncodedEventId = binary_to_hex(EventId),
+    encode_ok_accepted(OK, Opts, Buffer ++ [EncodedEventId]);
+encode_ok_event_id(#ok{ event_id = EventId }, _Opts, Buffer) ->
+    {error, [{event_id, EventId}, {buffer, Buffer}]}.
+
+encode_ok_accepted(#ok{ accepted = Accepted } = OK, Opts, Buffer)
+  when is_boolean(Accepted) ->
+    encode_ok_prefix(OK, Opts, Buffer ++ [Accepted]);
+encode_ok_accepted(#ok{ accepted = Accepted }, _Opts, Buffer) ->
+    {error, [{accepted, Accepted},{buffer, Buffer}]}.
+
+encode_ok_prefix(#ok{prefix = <<>>, message = <<>>} = OK, Opts, Buffer) ->
+    encoded_ok_final(OK, Opts, Buffer ++ [<<>>]);
+encode_ok_prefix(#ok{prefix = <<"pow">>, message = Message} = OK, Opts, Buffer)
+  when is_binary(Message) ->
+    FullMessage = <<"pow", ": ", Message/binary>>,
+    encoded_ok_final(OK, Opts, Buffer ++ [FullMessage]);
+encode_ok_prefix(#ok{prefix = <<"duplicate">>, message = Message} = OK, Opts, Buffer)
+  when is_binary(Message) ->
+    FullMessage = <<"duplicate", ": ", Message/binary>>,
+    encoded_ok_final(OK, Opts, Buffer ++ [FullMessage]);
+encode_ok_prefix(#ok{prefix = <<"blocked">>, message = Message} = OK, Opts, Buffer)
+  when is_binary(Message) ->
+    FullMessage = <<"blocked", ": ", Message/binary>>,
+    encoded_ok_final(OK, Opts, Buffer ++ [FullMessage]);
+encode_ok_prefix(#ok{prefix = <<"rate-limited">>, message = Message} = OK, Opts, Buffer)
+  when is_binary(Message) ->
+    FullMessage = <<"rate-limited", ": ", Message/binary>>,
+    encoded_ok_final(OK, Opts, Buffer ++ [FullMessage]);
+encode_ok_prefix(#ok{prefix = <<"invalid">>, message = Message} = OK, Opts, Buffer)
+  when is_binary(Message) ->
+    FullMessage = <<"invalid", ": ", Message/binary>>,
+    encoded_ok_final(OK, Opts, Buffer ++ [FullMessage]);
+encode_ok_prefix(#ok{prefix = <<"error">>, message = Message} = OK, Opts, Buffer)
+  when is_binary(Message) ->
+    FullMessage = <<"error", ": ", Message/binary>>,
+    encoded_ok_final(OK, Opts, Buffer ++ [FullMessage]);
+encode_ok_prefix(#ok{ prefix = Prefix, message = Message }, Params, Buffer) ->
+    {error, [{prefix, Prefix},{message, Message},{params, Params}, {buffer, Buffer}]}.
+
+encoded_ok_final(_, _Opts, Buffer) ->
+    {ok, Buffer}.
+
+%%--------------------------------------------------------------------
+%% @hidden
+%%--------------------------------------------------------------------
+-spec encode_ok_test() -> any().
+encode_ok_test() ->
+    EventId = <<1:256>>,
+    HexEventId = nostrlib:binary_to_hex(EventId),
+    [?assertEqual({ok, [<<"OK">>, HexEventId, true, <<>>]}
+                 ,encode_ok(#ok{ event_id = EventId
+                               , accepted = true
+                               }, []))
+    ,?assertEqual({ok, [<<"OK">>, HexEventId, true, <<"pow: difficulty 25>=24">>]}
+                 ,encode_ok(#ok{ event_id = EventId
+                               , accepted = true
+                               , prefix = <<"pow">>
+                               , message = <<"difficulty 25>=24">>
+                               }, []))
+    ,?assertEqual({ok, [<<"OK">>, HexEventId, true, <<"duplicate: already have this event">>]}
+                 ,encode_ok(#ok{ event_id = EventId
+                               , accepted = true
+                               , prefix = <<"duplicate">>
+                               , message = <<"already have this event">>
+                               }, []))
+    ,?assertEqual({ok, [<<"OK">>, HexEventId, false, <<"blocked: you are banned from posting here">>]}
+                 ,encode_ok(#ok{ event_id = EventId
+                               , accepted = false
+                               , prefix = <<"blocked">>
+                               , message = <<"you are banned from posting here">>
+                               }, []))
+    ,?assertEqual({ok, [<<"OK">>, HexEventId, false, <<"blocked: please register your pubkey at https://my-expensive-relay.example.com">>]}
+                 ,encode_ok(#ok{ event_id = EventId
+                               , accepted = false
+                               , prefix = <<"blocked">>
+                               , message = <<"please register your pubkey at https://my-expensive-relay.example.com">>
+                               }, []))
+    ,?assertEqual({ok, [<<"OK">>, HexEventId, false, <<"rate-limited: slow down there chief">>]}
+                 ,encode_ok(#ok{ event_id = EventId
+                               , accepted = false
+                               , prefix = <<"rate-limited">>
+                               , message = <<"slow down there chief">>
+                               }, []))
+    ,?assertEqual({ok, [<<"OK">>, HexEventId, false, <<"invalid: event creation date is too far off from the current time. Is your system clock in sync?">>]}
+                 ,encode_ok(#ok{ event_id = EventId
+                               , accepted = false
+                               , prefix = <<"invalid">>
+                               , message = <<"event creation date is too far off from the current time. Is your system clock in sync?">>
+                               }, []))
+    ,?assertEqual({ok, [<<"OK">>, HexEventId, false, <<"pow: difficulty 26 is less than 30">>]}
+                 ,encode_ok(#ok{ event_id = EventId
+                               , accepted = false
+                               , prefix = <<"pow">>
+                               , message = <<"difficulty 26 is less than 30">>
+                               }, []))
+    ,?assertEqual({ok, [<<"OK">>, HexEventId, false, <<"error: could not connect to the database">>]}
+                 ,encode_ok(#ok{ event_id = EventId
+                               , accepted = false
+                               , prefix = <<"error">>
+                               , message = <<"could not connect to the database">>
+                               }, []))
+    ].
+
+%%--------------------------------------------------------------------
 %% @hidden
 %% @doc
 %% @end
@@ -674,7 +806,8 @@ to_json(Map) ->
 %%--------------------------------------------------------------------
 -spec decode(Message) -> Return when
       Message :: encoded_event(),
-      Return :: decoded_messages().
+      Return  :: decoded_messages().
+
 decode(Message) ->
     decode(Message, []).
 
@@ -684,12 +817,12 @@ decode(Message) ->
 %%--------------------------------------------------------------------
 -spec decode(Message, Opts) -> Return when
       Message :: encoded_event(),
-      Opts :: proplists:proplists(),
-      Return :: decoded_messages().
+      Opts    :: proplists:proplists(),
+      Return  :: decoded_messages().
 
-decode(Json, _Opts)
+decode(Json, Opts)
   when is_map(Json) orelse is_list(Json) ->
-    decode_message(Json);
+    decode_message(Json, Opts);
 decode(<<Message/bitstring>>, _Opts) ->
     case thoas:decode(Message) of
         {ok, Json} ->
@@ -724,8 +857,8 @@ check(Message) ->
 %% @end
 %%--------------------------------------------------------------------
 -spec check(Event, Opts) -> Return when
-      Event :: encoded_event(),
-      Opts :: proplists:proplists(),
+      Event  :: encoded_event(),
+      Opts   :: proplists:proplists(),
       Return :: {ok, Event}
               | {error, any()}.
 
@@ -736,50 +869,75 @@ check(Message, Opts) ->
     end.
 
 %%--------------------------------------------------------------------
+%% @doc
+%% @see decode_message/2
+%% @end
+%%--------------------------------------------------------------------
+-spec decode_message(JSON) -> Return when
+      JSON   :: term(),
+      Return :: {ok, term()}
+              | {error, proplists:proplists()}.
+
+decode_message(JSON) ->
+    decode_message(JSON, #{}).
+
+%%--------------------------------------------------------------------
 %% @doc internal function used to decode every element of a JSON
 %% encoded message and convert it to record.
 %%
 %% @todo creates more test.
 %% @end
 %%--------------------------------------------------------------------
--spec decode_message(Json) -> Return when
-      Json :: term(),
+-spec decode_message(JSON, Opts) -> Return when
+      JSON   :: term(),
+      Opts   :: map(),
       Return :: {ok, term()}
               | {error, proplists:proplists()}.
 
 % decode an event message from client to relay
-decode_message([<<"EVENT">>, Event])
+decode_message([<<"EVENT">>, Event], Opts)
   when is_map(Event) ->
-    decode_event_id(Event, #event{}, []);
+    decode_event_id(Event, #event{}, [], Opts);
 
 % decode an event message from relay to client
-decode_message([<<"EVENT">>, <<SubscriptionId/bitstring>>, Event])
+decode_message([<<"EVENT">>, <<SubscriptionId/bitstring>>, Event], Opts)
   when is_map(Event) ->
-    decode_subscription(SubscriptionId, Event, []);
+    decode_subscription(SubscriptionId, Event, [], Opts);
 
 % decode a subscription request
-decode_message([<<"REQ">>, <<SubscriptionId/bitstring>>, Filter]) ->
-    decode_request(SubscriptionId, Filter, []);
+decode_message([<<"REQ">>, <<SubscriptionId/bitstring>>, Filter], Opts) ->
+    decode_request(SubscriptionId, Filter, [], Opts);
 
 % decode a close message: end of subscription request
-decode_message([<<"CLOSE">>, SubscriptionId]) ->
-    decode_close(SubscriptionId, []);
+decode_message([<<"CLOSE">>, SubscriptionId], Opts) ->
+    decode_close(SubscriptionId, [], Opts);
 
 % decode a notice message
-decode_message([<<"NOTICE">>, Notice]) ->
-    decode_notice(Notice, []);
+decode_message([<<"NOTICE">>, Notice], Opts) ->
+    decode_notice(Notice, [], Opts);
 
 % decode an end of subscription message
-decode_message([<<"EOSE">>, SubscriptionId]) ->
-    decode_eose(SubscriptionId, []);
+decode_message([<<"EOSE">>, SubscriptionId], Opts) ->
+    decode_eose(SubscriptionId, [], Opts);
 
-decode_message(Message) ->
+% by default, events are unsupported
+decode_message(Message, _Opts) ->
     {error, {unsupported, Message}}.
 
 %%--------------------------------------------------------------------
 %% @hidden
+%% @doc Decodes an event ID
+%% @end
 %%--------------------------------------------------------------------
-decode_event_id(#{ <<"id">> := <<RawEventId/bitstring>> } = Rest, Buffer, Labels)
+-spec decode_event_id(JSON, Buffer, Labels, Opts) -> Return when
+      JSON   :: map(),
+      Buffer :: map(),
+      Labels :: map(),
+      Opts   :: map(),
+      Return :: {ok, term(), Labels}
+              | {error, term()}.
+
+decode_event_id(#{ <<"id">> := <<RawEventId/bitstring>> } = Rest, Buffer, Labels, _Opts)
   when byte_size(RawEventId) =:= 64 ->
     case is_hex(RawEventId) of
         true ->
@@ -789,18 +947,27 @@ decode_event_id(#{ <<"id">> := <<RawEventId/bitstring>> } = Rest, Buffer, Labels
         false ->
             {error, [{event, {bad, id}}]}
     end;
-decode_event_id(#{ <<"id">> := <<_/bitstring>> }, _, Labels) ->
+decode_event_id(#{ <<"id">> := <<_/bitstring>> }, _Buffer, Labels, _Opts) ->
     Reason = [{event, {bad, id}}
              ,{labels, Labels}
              ],
     {error, Reason};
-decode_event_id(_, _, _) ->
+decode_event_id(_JSON, _Buffer, _Labels, _Opts) ->
     Reason = [{event, {missing, id}}],
     {error, Reason}.
 
 %%--------------------------------------------------------------------
 %% @hidden
+%% @doc Decodes a public key.
+%% @end
 %%--------------------------------------------------------------------
+-spec decode_event_pubkey(JSON, Buffer, Labels) -> Return when
+      JSON   :: map(),
+      Buffer :: map(),
+      Labels :: map(),
+      Return :: {ok, term(), Labels}
+              | {error, term()}.
+
 decode_event_pubkey(#{ <<"pubkey">> := <<RawPublicKey/bitstring>> } = Rest, Buffer, Labels)
   when byte_size(RawPublicKey) =:= 64 ->
     case is_hex(RawPublicKey) of
@@ -819,22 +986,27 @@ decode_event_pubkey(_, _, _) ->
 %%--------------------------------------------------------------------
 %% @hidden
 %%--------------------------------------------------------------------
-decode_event_created_at(#{ <<"created_at">> := RawCreatedAt } = Rest, Buffer, Labels)
-  when is_integer(RawCreatedAt) ->
-    CreatedAt = erlang:posixtime_to_universaltime(RawCreatedAt),
+decode_event_created_at(#{ <<"created_at">> := CreatedAt } = Rest, Buffer, Labels)
+  when is_integer(CreatedAt) andalso CreatedAt > 0 ->
+    CreatedAtDiff = erlang:system_time(seconds) - CreatedAt,
     Next = Buffer#event{ created_at = CreatedAt },
-    decode_event_kind(Rest, Next, Labels);
+    decode_event_kind(Rest, Next, [{created_at_diff, CreatedAtDiff}|Labels]);
 decode_event_created_at(_,_,_) ->
     {error, [{event, {missing, created_at}}]}.
 
 %%--------------------------------------------------------------------
 %% @hidden
+%% @doc 
+%% @end
 %%--------------------------------------------------------------------
 decode_event_kind(#{ <<"kind">> := RawKind } = Rest, Buffer, Labels)
   when is_integer(RawKind) ->
     case kind(RawKind) of
-        unsupported -> {error, [{event, {unsupported, kind}}]};
-        Kind ->
+        {unknown, _} -> 
+            Next = Buffer#event{ kind = RawKind },
+            NewLabels = [{kind, RawKind}|Labels],
+            decode_event_tags(Rest, Next, NewLabels);
+        {ok, Kind} ->
             Next = Buffer#event{ kind = Kind },
             decode_event_tags(Rest, Next, Labels)
     end;
@@ -1122,12 +1294,15 @@ decode_tags(Tags, _) ->
 %% @todo add more tests
 %% @end
 %%--------------------------------------------------------------------
--spec serialize(event()) -> list().
+-spec serialize(Event) -> Return when
+      Event  :: event(),
+      Return :: list().
+
 serialize(#{ <<"pubkey">> := <<PublicKey/binary>> })
   when byte_size(PublicKey) =/= 64 ->
     {error, [{public_key, PublicKey}]};
 serialize(#{ <<"created_at">> := CreatedAt })
-  when not is_integer(CreatedAt) orelse CreatedAt<0 ->
+  when not is_integer(CreatedAt) orelse CreatedAt < 0 ->
     {error, [{created_at, CreatedAt}]};
 serialize(#{ <<"kind">> := Kind })
   when not is_integer(Kind) ->
@@ -1171,8 +1346,8 @@ serialize_test() ->
 %% @doc internal function.
 %% @end
 %%--------------------------------------------------------------------
-decode_subscription(<<SubscriptionId/binary>>, RawEvent, Labels) ->
-    case decode_event_id(RawEvent, #event{}, []) of
+decode_subscription(<<SubscriptionId/binary>>, RawEvent, Labels, Opts) ->
+    case decode_event_id(RawEvent, #event{}, [], Opts) of
         {ok, Event, EventLabels} ->
             Subscription = #subscription{ id = SubscriptionId
                                         , content = Event
@@ -1185,203 +1360,264 @@ decode_subscription(<<SubscriptionId/binary>>, RawEvent, Labels) ->
 %% @doc internal function.
 %% @end
 %%--------------------------------------------------------------------
-decode_filters(Filter)
+decode_filters(Filter, Labels, Opts)
   when is_map(Filter) ->
-    decode_filter(Filter);
-decode_filters(Filters)
+    decode_filter(Filter, Labels, Opts);
+decode_filters(Filters, Labels, Opts)
   when is_list(Filters)->
-    decode_filters(Filters, []).
+    decode_filters(Filters, [], Labels, Opts).
 
 %%--------------------------------------------------------------------
 %% @hidden
 %%--------------------------------------------------------------------
-decode_filters([], Buffer) ->
-    {ok, lists:reverse(Buffer)};
-decode_filters([Filter|Rest], Buffer) ->
-    case decode_filter(Filter) of
-        {ok, F} -> decode_filters(Rest, [F|Buffer]);
-        Elsewise -> Elsewise
+decode_filters([], Buffer, Labels, _Opts) ->
+    {ok, lists:reverse(Buffer), Labels};
+decode_filters([Filter|Rest], Buffer, Labels, Opts) ->
+    case decode_filter(Filter, Labels, Opts) of
+        {ok, F, NewLabels} ->
+            decode_filters(Rest, [F|Buffer], NewLabels, Opts);
+        Elsewise ->
+            Elsewise
     end.
 
 % @hidden
 -spec decode_filters_test() -> any().
 decode_filters_test() ->
-    [?assertEqual({ok, []}, decode_filters([]))
-    ,?assertEqual({ok, #filter{}}, decode_filters(#{}))
-    ,?assertEqual({ok, [#filter{}]}, decode_filters([#{}]))
+    [?assertEqual({ok, [], []}, decode_filters([], [], #{}))
+    ,?assertEqual({ok, #filter{}, []}, decode_filters(#{}, [], #{}))
+    ,?assertEqual({ok, [#filter{}], []}, decode_filters([#{}], [], #{}))
     ].
 
 %%--------------------------------------------------------------------
 %% @doc internal function.
 %% @end
 %%--------------------------------------------------------------------
-decode_filter(Filter) ->
-    decode_filter_check(Filter).
+decode_filter([], Labels, _Opts) ->
+    {ok, [], Labels};
+decode_filter([Filter], Labels, _Opts) 
+  when map_size(Filter) =:= 0 ->
+    {ok, [], Labels};
+decode_filter(Filter, Labels, Opts) ->
+    decode_filter_check(Filter, Labels, Opts).
 
 %%--------------------------------------------------------------------
 %% @hidden
 %%--------------------------------------------------------------------
-decode_filter_check(#{ <<"since">> := Since })
+decode_filter_check(#{ <<"since">> := Since }, _Labels, _Opts)
   when not is_integer(Since) orelse Since < 0 ->
     {error, [{since, Since}]};
-decode_filter_check(#{ <<"until">> := Until })
+decode_filter_check(#{ <<"until">> := Until }, _Labels, _Opts)
   when not is_integer(Until) orelse Until < 0 ->
     {error, [{until, Until}]};
-decode_filter_check(#{ <<"since">> := Since, <<"until">> := Until })
+decode_filter_check(#{ <<"since">> := Since, <<"until">> := Until }, _Labels, _Opts)
   when Since > Until ->
     {error, [{until, Until}, {since, Since}]};
-decode_filter_check(#{ <<"limit">> := Limit })
+decode_filter_check(#{ <<"limit">> := Limit }, _Labels, _Opts)
   when not is_integer(Limit) orelse Limit < 0 ->
     {error, [{limit, Limit}]};
-decode_filter_check(#{ <<"ids">> := EventsIds })
+decode_filter_check(#{ <<"ids">> := EventsIds }, _Labels, _Opts)
   when not is_list(EventsIds) ->
     {error, [{event_ids, EventsIds}]};
-decode_filter_check(#{ <<"authors">> := Authors })
+decode_filter_check(#{ <<"authors">> := Authors }, _Labels, _Opts)
   when not is_list(Authors) ->
     {error, [{authors, Authors}]};
-decode_filter_check(#{ <<"#e">> := TagEventIds })
+decode_filter_check(#{ <<"#e">> := TagEventIds }, _Labels, _Opts)
   when not is_list(TagEventIds) ->
     {error, [{tag_event_ids, TagEventIds}]};
-decode_filter_check(#{ <<"#p">> := TagPublicKeys })
+decode_filter_check(#{ <<"#p">> := TagPublicKeys }, _Labels, _Opts)
   when not is_list(TagPublicKeys) ->
     {error, [{tag_public_keys, TagPublicKeys}]};
-decode_filter_check(#{ <<"kinds">> := Kinds })
+decode_filter_check(#{ <<"kinds">> := Kinds }, _Labels, _Opts)
   when not is_list(Kinds) ->
     {error, [{kinds, Kinds}]};
-decode_filter_check(Filter) ->
-    decode_filter_ids(Filter, #filter{}).
+decode_filter_check(Filter, Labels, Opts) ->
+    decode_filter_ids(Filter, #filter{}, Labels, Opts).
 
 %%--------------------------------------------------------------------
 %% @hidden
 %%--------------------------------------------------------------------
 % @todo add decode prefixes for ids
-decode_filter_ids(#{ <<"ids">> := EventIds } = Filter, Buffer)
+decode_filter_ids(#{ <<"ids">> := EventIds } = Filter, Buffer, Labels, Opts)
   when is_list(EventIds) ->
-    case decode_prefixes(EventIds) of
-        {ok, Prefixes} ->
+    case decode_prefixes(EventIds, Labels, Opts) of
+        {ok, Prefixes, NewLabels} ->
             Next = Buffer#filter{ event_ids = Prefixes },
-            decode_filter_authors(Filter, Next);
+            decode_filter_authors(Filter, Next, NewLabels, Opts);
         Elsewise ->
             Elsewise
     end;
-decode_filter_ids(Filter, Buffer)
+decode_filter_ids(Filter, Buffer, Labels, Opts)
   when is_map(Filter) ->
-    decode_filter_authors(Filter, Buffer).
+    decode_filter_authors(Filter, Buffer, Labels, Opts).
 
 %%--------------------------------------------------------------------
 %% @hidden
 %%--------------------------------------------------------------------
-decode_prefixes(Prefixes) ->
-    decode_prefixes(Prefixes, []).
+decode_prefixes(Prefixes, Labels, Opts) ->
+    decode_prefixes(Prefixes, [], Labels, Opts).
 
 %%--------------------------------------------------------------------
 %% @hidden
 %%--------------------------------------------------------------------
-decode_prefixes([], Buffer) -> {ok, lists:reverse(Buffer)};
-decode_prefixes([Prefix|Rest], Buffer) ->
+decode_prefixes([], Buffer, Labels, _Opts) ->
+    {ok, lists:reverse(Buffer), Labels};
+decode_prefixes([Prefix|Rest], Buffer, Labels, Opts) ->
     case is_hex(Prefix) of
         true ->
             Decoded = hex_to_binary(Prefix),
-            decode_prefixes(Rest, [Decoded|Buffer]);
+            decode_prefixes(Rest, [Decoded|Buffer], Labels, Opts);
         false ->
             {error, [{prefix, Prefix}]}
     end;
-decode_prefixes(Prefixes,_) ->
+decode_prefixes(Prefixes, _, _Labels, _Opts) ->
     {error, [{prefixes, Prefixes}]}.
 
 %%--------------------------------------------------------------------
 %% @hidden
 %%--------------------------------------------------------------------
 % @todo add decode prefixes for authors
-decode_filter_authors(#{ <<"authors">> := Authors } = Filter, Buffer)
+decode_filter_authors(#{ <<"authors">> := Authors } = Filter, Buffer, Labels, Opts)
   when is_list(Authors) ->
-    case decode_prefixes(Authors) of
-        {ok, Prefixes} ->
+    case decode_prefixes(Authors, Labels, Opts) of
+        {ok, Prefixes, NewLabels} ->
             Next = Buffer#filter{ authors = Prefixes },
-            decode_filter_kinds(Filter, Next);
+            decode_filter_kinds(Filter, Next, NewLabels, Opts);
         Elsewise -> Elsewise
     end;
-decode_filter_authors(Filter, Buffer)
+decode_filter_authors(Filter, Buffer, Labels, Opts)
   when is_map(Filter) ->
-    decode_filter_kinds(Filter, Buffer).
+    decode_filter_kinds(Filter, Buffer, Labels, Opts).
 
 %%--------------------------------------------------------------------
 %% @hidden
+%% @doc 
+%% @todo add options support to allow unsupported labels or not.
+%% @end
 %%--------------------------------------------------------------------
-decode_filter_kinds(#{ <<"kinds">> := Kinds } = Filter, Buffer) ->
-    Next = Buffer#filter{ kinds = kinds(Kinds) },
-    decode_filter_tag_event_ids(Filter, Next);
-decode_filter_kinds(Filter, Buffer)
+decode_filter_kinds(#{ <<"kinds">> := Kinds } = Filter, Buffer, Labels, #{ strict := true }) ->
+    Fun = fun decode_filter_kinds_foldl_strict/2,
+    {DecodedKinds, NewLabels} = lists:foldl(Fun, {[], Labels}, Kinds), 
+    Next = Buffer#filter{ kinds = DecodedKinds },
+    decode_filter_tag_event_ids(Filter, Next, NewLabels);
+decode_filter_kinds(#{ <<"kinds">> := Kinds } = Filter, Buffer, Labels, _Opts) ->
+    Fun = fun decode_filter_kinds_foldl_permissive/2,
+    {DecodedKinds, NewLabels} = lists:foldl(Fun, {[], Labels}, Kinds), 
+    Next = Buffer#filter{ kinds = DecodedKinds },
+    decode_filter_tag_event_ids(Filter, Next, NewLabels);
+decode_filter_kinds(Filter, Buffer, Labels, _Opts)
   when is_map(Filter) ->
-    decode_filter_tag_event_ids(Filter, Buffer).
+    decode_filter_tag_event_ids(Filter, Buffer, Labels).
+
+% local fold to decode kinds without crashing and add a label.
+decode_filter_kinds_foldl_permissive(Kind, {Kinds, Labels}) ->
+    case kind(Kind) of
+        {ok, K} -> 
+            {[K|Kinds], Labels};
+        {unknown, K} -> 
+            {[K|Kinds], [{kind, {unknown, K}}|Labels]};
+        {error, K} -> 
+            {Kinds, [{kind, {error, K}}|Labels]}
+    end.
+
+% in strict mode, all unsupported kinds are dropped.
+decode_filter_kinds_foldl_strict(Kind, {Kinds, Labels}) ->
+    case kind(Kind) of
+        {ok, K} -> 
+            {[K|Kinds], Labels};
+        {unknown, K} -> 
+            {Kinds, [{kind, {unknown, K}}|Labels]};
+        {error, K} -> 
+            {Kinds, [{kind, {error, K}}|Labels]}
+    end.
+
 
 %%--------------------------------------------------------------------
 %% @hidden
+%% @doc
+%% @todo add decode for tags event ids
+%% @end
 %%--------------------------------------------------------------------
-% @todo add decode for tags event ids
-decode_filter_tag_event_ids(#{ <<"#e">> := TagEventIds } = Filter, Buffer) ->
+decode_filter_tag_event_ids(#{ <<"#e">> := TagEventIds } = Filter, Buffer, Labels) ->
     Parsed = lists:map(fun(X) -> hex_to_binary(X) end, TagEventIds),
     Next = Buffer#filter{ tag_event_ids = Parsed },
-    decode_filter_tag_public_keys(Filter, Next);
-decode_filter_tag_event_ids(Filter, Buffer)
+    decode_filter_tag_public_keys(Filter, Next, Labels);
+decode_filter_tag_event_ids(Filter, Buffer, Labels)
   when is_map(Filter) ->
-    decode_filter_tag_public_keys(Filter, Buffer).
+    decode_filter_tag_public_keys(Filter, Buffer, Labels).
 
 %%--------------------------------------------------------------------
 %% @hidden
 %%--------------------------------------------------------------------
 % @todo add decode for tags public keys
-decode_filter_tag_public_keys(#{ <<"#p">> := TagPublicKeys } = Filter, Buffer) ->
+decode_filter_tag_public_keys(#{ <<"#p">> := TagPublicKeys } = Filter, Buffer, Labels) ->
     Parsed = lists:map(fun(X) -> hex_to_binary(X) end, TagPublicKeys),
     Next = Buffer#filter{ tag_public_keys = Parsed },
-    decode_filter_since(Filter, Next);
-decode_filter_tag_public_keys(Filter, Buffer)
+    decode_filter_since(Filter, Next, Labels);
+decode_filter_tag_public_keys(Filter, Buffer, Labels)
   when is_map(Filter) ->
-    decode_filter_since(Filter, Buffer).
+    decode_filter_since(Filter, Buffer, Labels).
+
+%%--------------------------------------------------------------------
+%% @hidden
+%% @doc we assume the timestamp is correct.
+%% @end
+%%--------------------------------------------------------------------
+decode_filter_since(#{ <<"since">> := Since } = Filter, Buffer, Labels)
+  when is_integer(Since) andalso Since > 0 ->
+    Next = Buffer#filter{ since = Since },
+    decode_filter_until(Filter, Next, Labels);
+decode_filter_since(Filter, Buffer, Labels)
+  when is_map(Filter) ->
+    decode_filter_until(Filter, Buffer, Labels).
+
+%%--------------------------------------------------------------------
+%% @hidden
+%% @doc we assume the timestamps is correct.
+%% @end
+%%--------------------------------------------------------------------
+decode_filter_until(#{ <<"until">> := Until } = Filter, Buffer, Labels)
+  when is_integer(Until) andalso Until > 0 ->
+    Next = Buffer#filter{ until = Until },
+    decode_filter_limit(Filter, Next, Labels);
+decode_filter_until(Filter, Buffer, Labels)
+  when is_map(Filter) ->
+    decode_filter_limit(Filter, Buffer, Labels).
 
 %%--------------------------------------------------------------------
 %% @hidden
 %%--------------------------------------------------------------------
-decode_filter_since(#{ <<"since">> := Since } = Filter, Buffer) ->
-    Next = Buffer#filter{ since = erlang:posixtime_to_universaltime(Since) },
-    decode_filter_until(Filter, Next);
-decode_filter_since(Filter, Buffer)
+decode_filter_limit(#{ <<"limit">> := Limit } = Filter, Buffer, Labels) ->
+    Next = Buffer#filter{ limit = Limit },
+    decode_filter_final(Filter, Next, Labels);
+decode_filter_limit(Filter, Buffer, Labels)
   when is_map(Filter) ->
-    decode_filter_until(Filter, Buffer).
+    decode_filter_final(Filter, Buffer, Labels).
 
 %%--------------------------------------------------------------------
 %% @hidden
 %%--------------------------------------------------------------------
-decode_filter_until(#{ <<"until">> := Until } = Filter, Buffer) ->
-    Next = Buffer#filter{ until = erlang:posixtime_to_universaltime(Until) },
-    decode_filter_limit(Filter, Next);
-decode_filter_until(Filter, Buffer)
-  when is_map(Filter) ->
-    decode_filter_limit(Filter, Buffer).
-
-%%--------------------------------------------------------------------
-%% @hidden
-%%--------------------------------------------------------------------
-decode_filter_limit(#{ <<"limit">> := Limit } = _Filter, Buffer) ->
-    {ok, Buffer#filter{ limit = Limit }};
-decode_filter_limit(Filter, Buffer)
-  when is_map(Filter) ->
-    {ok, Buffer}.
+% if until and since are configured, we create interval label containing
+% the difference between these two timestamp.
+decode_filter_final(_Filter, #filter{ until = Until, since = Since } = Buffer, Labels)
+  when is_integer(Until) andalso is_integer(Since) ->
+    {ok, Buffer, [{interval, abs(Since-Until)}|Labels]};
+decode_filter_final(_Filter, Buffer, Labels) ->
+    {ok, Buffer, Labels}.
 
 %%--------------------------------------------------------------------
 %% @hidden
 %%--------------------------------------------------------------------
 -spec decode_filter_test() -> any().
 decode_filter_test() ->
-    [?assertEqual({ok, #filter{}}, decode_filter(#{}))
-    ,?assertEqual({ok, #filter{ since = {{2020,01,01}, {00,00,00}}
-                              , until = {{2021,01,01}, {00,00,00}}
+    [?assertEqual({ok, #filter{}, []}, decode_filter(#{}, [], #{}))
+    ,?assertEqual({ok, #filter{ since = 1577836800
+                              , until = 1609459200
                               , limit = 100
-                              }}
+                              }, [{interval, 31622400}]}
                  ,decode_filter(#{ <<"since">> => 1577836800
                                  , <<"until">> => 1609459200
                                  , <<"limit">> => 100
-                                 })
+                                 }, [], #{})
                  )
     ].
 
@@ -1390,13 +1626,13 @@ decode_filter_test() ->
 %% @doc
 %% @end
 %%--------------------------------------------------------------------
-decode_request(SubscriptionId, Filters, Labels) ->
-    case decode_filters(Filters) of
-        {ok, F} ->
+decode_request(SubscriptionId, Filters, Labels, Opts) ->
+    case decode_filters(Filters, Labels, Opts) of
+        {ok, F, NewLabels} ->
             Request = #request{ subscription_id = SubscriptionId
                               , filter = F
                               },
-            {ok, Request, Labels};
+            {ok, Request, NewLabels};
         Elsewise -> Elsewise
     end.
 
@@ -1405,8 +1641,8 @@ decode_request(SubscriptionId, Filters, Labels) ->
 %% @doc
 %% @end
 %%--------------------------------------------------------------------
-decode_eose(Value, Labels) ->
-    case decode_subscription_id(Value) of
+decode_eose(Value, Labels, Opts) ->
+    case decode_subscription_id(Value, Opts) of
         {ok, SubscriptionId} ->
             Eose = #eose{ id = SubscriptionId },
             {ok, Eose, Labels};
@@ -1418,32 +1654,32 @@ decode_eose(Value, Labels) ->
 %% @doc
 %% @end
 %%--------------------------------------------------------------------
-decode_notice(Value, Labels)
+decode_notice(Value, Labels, _Opts)
   when is_binary(Value) ->
     Notice = #notice{ message = Value },
     {ok, Notice, Labels};
-decode_notice(Value, _Labels) ->
+decode_notice(Value, _Labels, _Opts) ->
     {error, [{notice, Value}]}.
 
 %%--------------------------------------------------------------------
 %% @doc internal function.
 %% @end
 %%--------------------------------------------------------------------
-decode_close(Value, Labels)
+decode_close(Value, Labels, Opts)
   when is_binary(Value) ->
-    case decode_subscription_id(Value) of
+    case decode_subscription_id(Value, Opts) of
         {ok, SubscriptionId} ->
             Close = #close{ subscription_id = SubscriptionId },
             {ok, Close, Labels};
         Elsewise -> Elsewise
     end;
-decode_close(SubscriptionId, _Labels) ->
+decode_close(SubscriptionId, _Labels, _Opts) ->
     {error, [{subscription_id, SubscriptionId}]}.
 
 %%--------------------------------------------------------------------
 %% @hidden
 %%--------------------------------------------------------------------
-decode_subscription_id(<<SubscriptionId/binary>>) ->
+decode_subscription_id(<<SubscriptionId/binary>>, _Opts) ->
     case re:run(SubscriptionId, <<"^\\w+$">>) of
         {match, _} -> {ok, SubscriptionId};
         _ -> {error, [{subscription_id, SubscriptionId}]}
@@ -1456,14 +1692,16 @@ decode_subscription_id(<<SubscriptionId/binary>>) ->
 %%--------------------------------------------------------------------
 -spec kind(Kind) -> Return when
       Kind :: kind(),
-      Return :: kind().
+      Return :: {ok, kind()}
+              | {unknown, kind()}.
 
 ?KIND(0, set_metadata);
 ?KIND(1, text_note);
 ?KIND(2, recommend_server);
 ?KIND(3, contact_list);
 ?KIND(7, reaction);
-kind(_) -> unsupported.
+kind(Kind) when is_integer(Kind) -> {unknown, Kind};
+kind(Kind) ->  {error, Kind}.
 
 %%--------------------------------------------------------------------
 %% @doc kinds/1 function converts a list of atoms into integers.
@@ -1474,10 +1712,27 @@ kind(_) -> unsupported.
       Return :: [pos_integer()].
 
 kinds(Kinds) ->
-    Converter = fun(Kind) when is_atom(Kind) -> kind(Kind);
-                   (Kind) when is_integer(Kind) -> kind(Kind)
-                end,
-    lists:map(Converter, Kinds).
+    lists:map(fun kind_converter/1, Kinds).
+
+%%--------------------------------------------------------------------
+%% @hidden
+%% @doc simple map converter.
+%% @see kinds/1
+%% @end
+%%--------------------------------------------------------------------
+% here we encode, that means we must support this kind.
+kind_converter(Kind) 
+  when is_atom(Kind) ->
+    {ok, Return} = kind(Kind),
+    Return;
+% here we decode, that means we should support the kind received, but
+% if it's not the case, we return it as integer.
+kind_converter(Kind) 
+  when is_integer(Kind) ->
+    case kind(Kind) of
+        {ok, Return} -> Return;
+        {unknown, _} -> Kind
+    end.
 
 %%--------------------------------------------------------------------
 %% @doc `integer_to_hex/1' converts integer to hexadecimal bitstring.
