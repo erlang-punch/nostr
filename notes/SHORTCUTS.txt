@@ -836,4 +836,31 @@ have been removed. A new module called websocket_server_module_echo
 has been created to let our small websocket_server implementation
 available for test.
 
-Now we need to fix nostr_relay application.
+Now we need to fix nostr_relay application. And voilà, we should now
+have a relay running on localhost:4000 by default and it looks good!
+This relay will crash, for sure, because we don't added mnesia
+configuration/initialization, but the socket is open and it is ready
+to accept events.
+
+== 2023-11-18: Shortcut_24_53
+
+Let add mnesia initialization part. When we start the application,
+every modules should be automatically initialized if they have some
+requirement, creating a function like init/0 could solve this
+issue... Or the initialization will be done on the first call.
+
+At first glance, it looks good. It seems we have a part of our nostr
+relay working. All modules are initialized when the application is
+started. just... Let check if events are in the db. That's the
+case. Next step: test a random client on this relay.
+
+== 2023-11-18: Shortcut_24_54
+
+Fixing the test suite... Great. Starting nightmare engine, installing
+npm and trying to find a cool nostr client. rofl. desesperate
+rofl. Anyway, installed a new client, it seems it does not work
+correclty there, but lot of NIPs are still not supported.
+
+Some commands are not supported by the current session. We'll fix that
+in another shortcut. Quick note: it crashes because some kinds are not
+supported in nostr decoder. We will need to fix that later :)

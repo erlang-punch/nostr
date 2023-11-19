@@ -11,6 +11,7 @@
 %%%===================================================================
 -module(nostr_relay_module_init).
 -export([init/2]).
+-include_lib("kernel/include/logger.hrl").
 -include_lib("nostrlib/include/nostrlib.hrl").
 
 %%--------------------------------------------------------------------
@@ -19,17 +20,26 @@
 %%--------------------------------------------------------------------
 -spec init(any(), any()) -> any().
 
-init({text, Message}, _State) ->
+% nostr relay only support text message.
+init({text, Message} = Data, State) ->
+    ?LOG_DEBUG("~p", [{self(), ?MODULE, init, [Data, State]}]),
     case nostrlib:decode(Message) of
         {ok, Decoded, _} ->
             {next, Decoded};
-        _ ->
+        Error ->
+            ?LOG_ERROR("~p", [{self(), ?MODULE, init, [Data], Error}]),
             Return = #notice{ message = <<"command not supported">> },
             {stop, Return}
     end;
-init({binary, _}, _State) ->
+
+% binary messages are not supported there.
+init({binary, _} = Data, State) ->
+    ?LOG_DEBUG("~p", [{self(), ?MODULE, init, [Data, State]}]),
     Return = #notice{ message = <<"binary not supported">> },
     {stop, Return};
-init(_Data, _State) ->
+
+% all other types are just dropped
+init(Data, State) ->
+    ?LOG_DEBUG("~p", [{self(), ?MODULE, init, [Data, State], unsupported}]),
     Return = #notice{ message = <<"unsupported command">> },
     {stop, Return}.

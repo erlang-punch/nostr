@@ -49,9 +49,6 @@ single(_Config) ->
     application:ensure_all_started(cowboy),
     application:ensure_all_started(gun),
 
-    % init mnesia table
-    websocket_server_nip01:start(),
-
     % start a local server
     {ok, _Server} = websocket_server:start("localhost", 23921),
     

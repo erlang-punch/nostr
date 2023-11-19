@@ -1,4 +1,6 @@
 %%%===================================================================
+%%% @author Mathieu Kerjouan <contact at erlang-punch.com>
+%%% @copyright (c) 2023 Erlang Punch
 %%% @doc
 %%%
 %%% This module requires an important number of optimization to
@@ -166,7 +168,7 @@ match_event_id(#event{ id = EventId }, #filter{ event_ids = EventIds }) ->
 
 match_event_id_test() ->
     Opts = [{year,2020},{month,01},{day, 01},{hour,00},{minute,00},{second,01}],
-    E = nu_filter:generate_random_event(<<1:256>>, Opts),
+    E = ?MODULE:generate_random_event(<<1:256>>, Opts),
 
     % a filter with an empty event_ids list should always return
     % true (undefined).
@@ -203,7 +205,7 @@ match_event_author(#event{ public_key = Author }, #filter{ authors = Authors }) 
 match_event_author_test() ->
     Opts = [{year,2020},{month,01},{day, 01}
            ,{hour,00},{minute,00},{second,01}],
-    E = nu_filter:generate_random_event(<<1:256>>, Opts),
+    E = ?MODULE:generate_random_event(<<1:256>>, Opts),
     {ok, Public} = nostrlib_schnorr:new_publickey(<<1:256>>),
 
     % a filter with an empty authors list must always return true
@@ -240,7 +242,7 @@ match_event_kind_test() ->
     Opts = [{year,2020},{month,01},{day, 01}
            ,{hour,00},{minute,00},{second,01}
            ,{kind,text_note}],
-    E = nu_filter:generate_random_event(<<1:256>>, Opts),
+    E = ?MODULE:generate_random_event(<<1:256>>, Opts),
 
     % a filter with an empty kinds list must always return true
     % here.

@@ -1,4 +1,6 @@
 %%%===================================================================
+%%% @author Mathieu Kerjouan <contact at erlang-punch.com>
+%%% @copyright (c) 2023 Erlang Punch
 %%% @doc
 %%% @end
 %%%===================================================================
@@ -13,6 +15,7 @@
       Type :: any(),
       Args :: any(),
       Return :: supervisor:startlink_ret().
+
 start(_StartType, _StartArgs) ->
     % @todo to modify. the current structure is not adapted
     % for an erlang release.
@@ -25,5 +28,6 @@ start(_StartType, _StartArgs) ->
 -spec stop(State) -> Return when
       State :: any(),
       Return :: ok.
+
 stop(_State) ->
     ok.

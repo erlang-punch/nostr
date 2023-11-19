@@ -1,11 +1,15 @@
 %%%===================================================================
+%%% @author Mathieu Kerjouan <contact at erlang-punch.com>
+%%% @copyright (c) 2023 Erlang Punch
 %%% @doc An example of nip01 implementation as module callback.
 %%% @end
 %%%===================================================================
 -module(nostr_relay_module_store).
+% nostr callback
 -export([start/0]).
 -export([init/2]).
--export([list_events/0, get_event/1, create_event/1]).
+% store api
+-export([list_events/0, get_event/1, exist_event/1, create_event/1]).
 -include_lib("kernel/include/logger.hrl").
 -include_lib("nostrlib/include/nostrlib.hrl").
 
@@ -35,28 +39,43 @@ start() ->
 %%--------------------------------------------------------------------
 -spec init(any(), any()) -> any().
 
-init(#event{} = Event, _State) ->
+init(#event{} = Event, State) ->
     case create_event(Event) of
-        % @todo create dedicated functions for each case.
-        {error, exist} ->
-            Message = #ok{ event_id = Event#event.id
-                         , accepted = true
-                         , prefix = <<"duplicate">>
-                         , message = <<"already have this event">>
-                         },            
-            {stop, Message};
-        {ok, _} ->
-            Message = #ok{ event_id = Event#event.id
-                         , accepted = true },
-            {stop, Message};
-        _ ->
-            Message = #ok{ event_id = Event#event.id
-                         , accepted = false
-                         , prefix = <<"error">>
-                         , message = <<"could not connect to the database">>
-                         },
-            {stop, Message}
+        {error, exist} -> duplicated_event(Event, State);
+        {ok, _} -> inserted_event(Event, State);
+        _ -> database_error(Event, State)
     end.
+
+%%--------------------------------------------------------------------
+%%
+%%--------------------------------------------------------------------
+database_error(Event, _State) ->
+    Message = #ok{ event_id = Event#event.id
+                 , accepted = false
+                 , prefix = <<"error">>
+                 , message = <<"could not connect to the database">>
+                 },
+    {stop, Message}.
+
+%%--------------------------------------------------------------------
+%%
+%%--------------------------------------------------------------------
+inserted_event(Event, _State) ->
+    Message = #ok{ event_id = Event#event.id
+                 , accepted = true },
+    {stop, Message}.
+
+%%--------------------------------------------------------------------
+%%
+%%--------------------------------------------------------------------
+duplicated_event(Event, _State) ->
+    Message = #ok{ event_id = Event#event.id
+                 , accepted = true
+                 , prefix = <<"duplicate">>
+                 , message = <<"already have this event">>
+                 },
+    {stop, Message}.
+
 
 %%--------------------------------------------------------------------
 %% @doc returns one element from the database using an event record.
@@ -100,10 +119,10 @@ list_events() ->
 -spec create_event(event()) -> any().
 
 create_event(#event{} = Event) ->
-    Fun = fun() -> 
+    Fun = fun() ->
                   case exist_event(Event) of
                       true -> exist;
-                      false -> mnesia:write(Event) 
+                      false -> mnesia:write(Event)
                   end
           end,
     case mnesia:transaction(Fun) of

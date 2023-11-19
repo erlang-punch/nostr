@@ -1,5 +1,6 @@
 %%%===================================================================
 %%% @author Mathieu Kerjouan <contact at erlang-punch.com>
+%%% @copyright (c) 2023 Erlang Punch
 %%% @doc
 %%%
 %%% `nostr_relay_handler' module is in charge of handling cowboy

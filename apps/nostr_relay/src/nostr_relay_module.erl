@@ -10,9 +10,31 @@
 %%% @end
 %%%====================================================================
 -module(nostr_relay_module).
--export([init/2]).
+-export([start_modules/1, init/2]).
 -include_lib("kernel/include/logger.hrl").
 -include_lib("nostrlib/include/nostrlib.hrl").
+
+%%--------------------------------------------------------------------
+%% @doc
+%% @end
+%%--------------------------------------------------------------------
+-spec start_modules(Modules) -> Return when
+      Modules :: [atom()],
+      Return :: list().
+
+start_modules(Modules) -> 
+    [ try_start(Module) || Module <- Modules ].
+
+%%--------------------------------------------------------------------
+%%
+%%--------------------------------------------------------------------
+try_start(Module) ->
+    try 
+        ?LOG_INFO("start module ~p", [Module]),
+        {Module, Module:start()}
+    catch
+        E:R -> {Module, E, R}
+    end.
 
 %%--------------------------------------------------------------------
 %% @doc forward directly client event to our main loop. We assume the

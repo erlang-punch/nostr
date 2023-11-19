@@ -1,6 +1,8 @@
 %%%===================================================================
 %%% @author Mathieu Kerjouan <contact at erlang-punch.com>
-%%% @doc DRAFT
+%%% @copyright (c) 2023 Erlang Punch
+%%% @doc This supervisor start automatically one listener, listening
+%%% by default on ws://localhost:4000.
 %%%
 %%% @todo improve start_relay_listener/2 function
 %%% @end
@@ -21,6 +23,7 @@
 -spec start_link(Args) -> Return when
       Args :: proplists:proplists(),
       Return :: supervisor:startlink_ret().
+
 start_link(Args) ->
     supervisor:start_link(?MODULE, Args).
 
@@ -33,6 +36,7 @@ start_link(Args) ->
       Return :: {ok,{SupFlags,[ChildSpec]}} | ignore,
       SupFlags :: supervisor:sup_flags(),
       ChildSpec :: supervisor:child_spec().
+
 init(Args) ->
     Children = children(Args),
     State = {supervisor(), Children},
@@ -42,14 +46,8 @@ init(Args) ->
 %% @doc
 %% @end
 %%--------------------------------------------------------------------
-children(Args) ->
-    [ spec_relay_listener(Args)
-    , spec_relay_store(Args)
-    , spec_relay_subscription_sup(Args)
-    , #{ id => pg
-       , start => {pg, start_link, [nostr_relay]}
-       , type => worker
-       }
+children(_) ->
+    [ spec_relay_listener(#{})
     ].
 
 %%--------------------------------------------------------------------
@@ -67,9 +65,9 @@ supervisor() ->
 -spec spec_relay_listener(Args) -> Return when
       Args :: proplists:proplists(),
       Return :: supervisor:child_spec().
+
 spec_relay_listener(Args) ->
-    Port = proplists:get_value(port, Args, 4000),
-    #{ id => {nostr_relay_listener, Port}
+    #{ id => nostr_relay_listener
      , start => {nostr_relay_listener, start_link, [Args]}
      , type => worker
      }.

@@ -1,5 +1,6 @@
 %%%===================================================================
 %%% @author Mathieu Kerjouan <contact at erlang-punch.com>
+%%% @copyright (c) 2023 Erlang Punch
 %%% @doc `nostr_relay_listener' module is a wrapper around cowboy
 %%%      module to start and stop a cowboy listener. Any message
 %%%      received on this process will stop the listener.
@@ -10,7 +11,7 @@
 -module(nostr_relay_listener).
 -behavior(gen_server).
 -export([start_link/1]).
--export([default_state/0, default_pipeline/0]).
+-export([modules/0, default_state/0, default_pipeline/0]).
 -export([init/1, terminate/2]).
 -export([handle_call/3, handle_cast/2, handle_info/2]).
 
@@ -23,6 +24,19 @@
                  , state :: map()
                  , pid   :: pid()
                  }).
+
+%%--------------------------------------------------------------------
+%% @doc supported modules.
+%% @end
+%%--------------------------------------------------------------------
+-spec modules() -> [atom()].
+
+modules() ->
+    [ nostr_relay_module_init
+    , nostr_relay_module_nip01
+    , nostr_relay_module_request
+    , nostr_relay_module_store
+    ].
 
 %%--------------------------------------------------------------------
 %% @doc returns the default pipeline used.
@@ -42,10 +56,7 @@ default_pipeline() ->
 -spec default_state() -> map().
 
 default_state() ->
-    #{ websocket_pipeline => [ nostr_relay_module_init
-                             , nostr_relay_module_nip01
-                             ]
-     }.
+    #{ websocket_pipeline => default_pipeline() }.
 
 %%--------------------------------------------------------------------
 %% @doc start a new listener.
@@ -81,6 +92,10 @@ init(Args) ->
     Dispatch = cowboy_router:compile(Routes),
     TransportOpts = [{port, Port}],
     ProtocolOpts = #{ env => #{ dispatch => Dispatch }},
+
+    % if needed, start all modules to initialize them (useful for
+    % databases).
+    nostr_relay_module:start_modules(modules()),
 
     % craft the name containing the name of the module, the host and
     % the port of this new server, and start it.
