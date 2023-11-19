@@ -17,9 +17,11 @@
 -include_lib("kernel/include/logger.hrl").
 -export([start/2, stop/1]).
 -export([level/1]).
+
 % gen_server callbacks
 -export([init/1, terminate/2]).
 -export([handle_call/3, handle_cast/2, handle_info/2]).
+
 % cowboy callbacks
 -export([init/2, terminate/3]).
 -export([websocket_init/1, websocket_handle/2, websocket_info/2]).
@@ -30,8 +32,7 @@
 %%--------------------------------------------------------------------
 -spec start(string(), pos_integer()) -> {ok, pid()}.
 start(Host, Port) ->
-    State = #{ websocket_pipeline => [ websocket_server_action_guard
-                                     , websocket_server_action_nip01
+    State = #{ websocket_pipeline => [ websocket_server_module_echo
                                      ]},
                              
     gen_server:start(?MODULE, #{ host => Host
@@ -65,9 +66,9 @@ stop(Pid) ->
 init(#{ host := _Host, port := Port, state := S }) ->
     application:ensure_all_started(cowboy),
 
-    % This dispatch should be "dynamically" created or simply forward
-    % to a module doing the hostname/path validation if nostr is
-    % supporting it (present in the database).
+    % @TODO This dispatch should be "dynamically" created or simply
+    % forward to a module doing the hostname/path validation if nostr
+    % is supporting it (present in the database).
     Dispatch = cowboy_router:compile([
         {'_', [{'_', ?MODULE, S}]}
     ]),

@@ -798,3 +798,42 @@ happy to see it moving.
 Tests are passing. I know, that's not really a reference right now,
 with all the mess around, but we did not destroy our last
 versions. Next shortcut will focus on cleanup things.
+
+== 2023-11-18: Shortcut_24_50
+
+Let do some cleanup! I know, that's annoying, but that's the rule when
+we create something without designing it first. By the way, this the
+50s shortcut, that means, ~25h of coding, less than a week of work and
+we solved so many things. Anyway, let start.
+
+Okay, so, we are moving one by one all modules/functions from our PoC
+called websocket_server to nostr_relay. It includes also to add some
+comments and specifications.
+
+== 2023-11-18: Shortcut_24_51
+
+Let continue to move websocket_server_* modules to nostr_relay.
+
+A part of the migration is progressing, but because we are changing
+everything, it takes time. That's normal, but it permits also to
+re-read our code, a kind of self made review. And it compiles. No test
+for the moment, but it will be done very soon.
+
+== 2023-11-18: Shortcut_24_52
+
+As you can see, using behaviors like feature makes things incredibly
+easy to migrate and move between projects, even when we are creating a
+PoC. In fact, if the main data-structure shared between modules has
+been correctly designed (or is flexible enough), things are moving
+fast.
+
+nip05 handler needs to be modified. This one is a bit special because
+it will ask the server for a json file using standard HTTP request, it
+will probably requires to modify a bit the logic with the handler.
+
+all important modules have been moved to nostr_relay, useless ones
+have been removed. A new module called websocket_server_module_echo
+has been created to let our small websocket_server implementation
+available for test.
+
+Now we need to fix nostr_relay application.

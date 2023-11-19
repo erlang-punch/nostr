@@ -10,13 +10,42 @@
 -module(nostr_relay_listener).
 -behavior(gen_server).
 -export([start_link/1]).
+-export([default_state/0, default_pipeline/0]).
 -export([init/1, terminate/2]).
 -export([handle_call/3, handle_cast/2, handle_info/2]).
--record(state, { name = undefined
-               , transport = undefined
-               , protocol = undefined
-               , pid = undefined
-               }).
+
+%%--------------------------------------------------------------------
+%%
+%%--------------------------------------------------------------------
+-record(?MODULE, { name
+                 , transport
+                 , protocol
+                 , state :: map()
+                 , pid   :: pid()
+                 }).
+
+%%--------------------------------------------------------------------
+%% @doc returns the default pipeline used.
+%% @end
+%%--------------------------------------------------------------------
+-spec default_pipeline() -> [atom(), ...].
+
+default_pipeline() ->
+    [ nostr_relay_module_init
+    , nostr_relay_module_nip01
+    ].
+
+%%--------------------------------------------------------------------
+%% @doc returns the default handler state used.
+%% @end
+%%--------------------------------------------------------------------
+-spec default_state() -> map().
+
+default_state() ->
+    #{ websocket_pipeline => [ nostr_relay_module_init
+                             , nostr_relay_module_nip01
+                             ]
+     }.
 
 %%--------------------------------------------------------------------
 %% @doc start a new listener.
@@ -38,38 +67,45 @@ start_link(Args) ->
 %%--------------------------------------------------------------------
 -spec init(Args) -> Return when
       Args :: proplists:proplists(),
-      Return :: {ok, #state{ pid :: pid() }}.
+      Return :: {ok, #?MODULE{ pid :: pid() }}.
 
 init(Args) ->
-    Port = proplists:get_value(port, Args, 4000),
-    Domain = proplists:get_value(domain, Args, '_'),
-    Name = {nostr_relay_listener, Port},
-    TransportOpts = [{port, Port}],
-    Routes = routes(Args),
+    % get general information about the new cowboy server we will
+    % start.
+    Host = maps:get(host, Args, "localhost"),
+    HandlerState = maps:get(state, Args, default_state()),
+    Port = maps:get(port, Args, 4000),
+
+    % create routes, dispatch and options for the socket.
+    Routes = routes(HandlerState),
     Dispatch = cowboy_router:compile(Routes),
+    TransportOpts = [{port, Port}],
     ProtocolOpts = #{ env => #{ dispatch => Dispatch }},
+
+    % craft the name containing the name of the module, the host and
+    % the port of this new server, and start it.
+    Name = {?MODULE, Host, Port},
     {ok, Pid} = cowboy:start_clear(Name, TransportOpts, ProtocolOpts),
-    State = #state{ name = Name
-                  , transport = TransportOpts
-                  , protocol = ProtocolOpts
-                  , pid = Pid
-                  },
-    pg:join(relay, {?MODULE, Port, Domain}, self()),
-    {ok, State}.
+
+    % create a new global state containing all previous information.
+    GlobalState = #?MODULE{ name = Name
+                          , transport = TransportOpts
+                          , protocol = ProtocolOpts
+                          , state = HandlerState
+                          , pid = Pid
+                          },
+    {ok, GlobalState}.
 
 %%--------------------------------------------------------------------
 %% @hidden
-%% @doc internal.
+%% @doc By default, all routes are set directly into a database, it
+%% gives us the ability to remove/modify/add them dynamically.
 %% @end
 %%--------------------------------------------------------------------
-routes(Args) ->
-    Port = proplists:get_value(port, Args, 4000),
-    Domain = proplists:get_value(domain, Args, '_'),
-    RouteOpts = [{port, Port}, {domain, Domain}],
-    [{Domain, [{"/", nostr_relay_handler, RouteOpts}
-              ,{"/.well-known/nostr.json", nostr_relay_nip05_handler, RouteOpts}
-              ]}
-    ].
+-spec routes(term()) -> term().
+
+routes(HandlerState) ->
+    [{'_', [{'_', nostr_relay_handler, HandlerState}] }].
 
 %%--------------------------------------------------------------------
 %% @doc stop a listener
@@ -78,9 +114,10 @@ routes(Args) ->
 %%--------------------------------------------------------------------
 -spec terminate(Reason, State) -> Return when
       Reason :: any(),
-      State :: #state{ pid :: pid() },
+      State :: #?MODULE{ pid :: pid() },
       Return :: ok.
-terminate(_Reason, #state{ name = Name } = _State) ->
+
+terminate(_Reason, #?MODULE{ name = Name } = _State) ->
     cowboy:stop_listener(Name).
 
 %%--------------------------------------------------------------------
@@ -89,8 +126,9 @@ terminate(_Reason, #state{ name = Name } = _State) ->
 %%--------------------------------------------------------------------
 -spec handle_cast(Message, State) -> Return when
       Message :: any(),
-      State :: #state{ pid :: pid() },
+      State :: #?MODULE{ pid :: pid() },
       Return :: {stop, {received, cast, Message}, State}.
+
 handle_cast(Message, State) ->
     {stop, {received, cast, Message}, State}.
 
@@ -101,8 +139,9 @@ handle_cast(Message, State) ->
 -spec handle_call(Message, From, State) -> Return when
       Message :: any(),
       From :: any(),
-      State :: #state{ pid :: pid() },
+      State :: #?MODULE{ pid :: pid() },
       Return :: {stop, {received, call, Message, From}, State}.
+
 handle_call(Message, From, State) ->
     {stop, {received, call, Message, From}, State}.
 
@@ -112,7 +151,8 @@ handle_call(Message, From, State) ->
 %%--------------------------------------------------------------------
 -spec handle_info(Message, State) -> Return when
       Message :: any(),
-      State :: #state{ pid :: pid() },
+      State :: #?MODULE{ pid :: pid() },
       Return :: {stop, {received, info, Message}, State}.
+
 handle_info(Message, State) ->
     {stop, {received, info, Message}, State}.

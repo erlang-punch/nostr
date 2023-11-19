@@ -9,11 +9,12 @@
 %%%
 %%% @end
 %%%===================================================================
--module(websocket_server_action_request).
+-module(nostr_relay_module_request).
 -export([init/2]).
 -export([websocket_info/1, websocket_info/2]).
 -include_lib("kernel/include/logger.hrl").
 -include_lib("nostrlib/include/nostrlib.hrl").
+-define(EVENT_FILTER, nostr_relay_events).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -31,7 +32,7 @@ init(#request{ filter = Filter } = Request, #{ ?MODULE := Subscriptions } = Stat
     EventList = list_events(),
 
     % let try to filter our events
-    FilteredEvents = nu_filter:match(EventList, Filter),
+    FilteredEvents = ?EVENT_FILTER:match(EventList, Filter),
 
     Events = [ #subscription{ id = Request#request.subscription_id
                             , content = Event
@@ -73,7 +74,7 @@ init(#request{ filter = Filter } = Request, State) ->
     EventList = list_events(),
 
     % let try to filter our events
-    FilteredEvents = nu_filter:match_limit(EventList, Filter),
+    FilteredEvents = ?EVENT_FILTER:match_limit(EventList, Filter),
 
     Events = [ #subscription{ id = Request#request.subscription_id
                             , content = Event

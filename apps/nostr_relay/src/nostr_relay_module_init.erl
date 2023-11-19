@@ -1,14 +1,15 @@
 %%%===================================================================
 %%% @author Mathieu Kerjouan <contact at erlang-punch.com>
 %%% @copyright (c) 2023 Erlang Punch
-%%% @doc 
+%%% @doc
 %%%
-%%% This module should validate the content of the message received by
-%%% nostr client, if valid, it goes to the next action.
+%%% `nostr_relay_module_init' module is the first module to be called
+%%% and will help to filter allowed messages dropping all other
+%%% messages.
 %%%
 %%% @end
 %%%===================================================================
--module(websocket_server_action_guard).
+-module(nostr_relay_module_init).
 -export([init/2]).
 -include_lib("nostrlib/include/nostrlib.hrl").
 

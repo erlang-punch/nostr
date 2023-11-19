@@ -10,7 +10,7 @@
 %%%
 %%% @end
 %%%===================================================================
--module(nu_filter).
+-module(nostr_relay_events).
 -export([match/2, match_limit/2, match_event/2, match_event_filter/2]).
 -export([generate_random_event/1, generate_random_event/2]).
 -include_lib("eunit/include/eunit.hrl").
