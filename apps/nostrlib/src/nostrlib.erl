@@ -820,9 +820,9 @@ decode(Message) ->
       Opts    :: proplists:proplists(),
       Return  :: decoded_messages().
 
-decode(Json, _Opts)
+decode(Json, Opts)
   when is_map(Json) orelse is_list(Json) ->
-    decode_message(Json);
+    decode_message(Json, Opts);
 decode(<<Message/bitstring>>, _Opts) ->
     case thoas:decode(Message) of
         {ok, Json} ->
@@ -1397,96 +1397,96 @@ decode_filter([], Labels, _Opts) ->
 decode_filter([Filter], Labels, _Opts) 
   when map_size(Filter) =:= 0 ->
     {ok, [], Labels};
-decode_filter(Filter, Labels, _Opts) ->
-    decode_filter_check(Filter, Labels).
+decode_filter(Filter, Labels, Opts) ->
+    decode_filter_check(Filter, Labels, Opts).
 
 %%--------------------------------------------------------------------
 %% @hidden
 %%--------------------------------------------------------------------
-decode_filter_check(#{ <<"since">> := Since }, _Labels)
+decode_filter_check(#{ <<"since">> := Since }, _Labels, _Opts)
   when not is_integer(Since) orelse Since < 0 ->
     {error, [{since, Since}]};
-decode_filter_check(#{ <<"until">> := Until }, _Labels)
+decode_filter_check(#{ <<"until">> := Until }, _Labels, _Opts)
   when not is_integer(Until) orelse Until < 0 ->
     {error, [{until, Until}]};
-decode_filter_check(#{ <<"since">> := Since, <<"until">> := Until }, _Labels)
+decode_filter_check(#{ <<"since">> := Since, <<"until">> := Until }, _Labels, _Opts)
   when Since > Until ->
     {error, [{until, Until}, {since, Since}]};
-decode_filter_check(#{ <<"limit">> := Limit }, _Labels)
+decode_filter_check(#{ <<"limit">> := Limit }, _Labels, _Opts)
   when not is_integer(Limit) orelse Limit < 0 ->
     {error, [{limit, Limit}]};
-decode_filter_check(#{ <<"ids">> := EventsIds }, _Labels)
+decode_filter_check(#{ <<"ids">> := EventsIds }, _Labels, _Opts)
   when not is_list(EventsIds) ->
     {error, [{event_ids, EventsIds}]};
-decode_filter_check(#{ <<"authors">> := Authors }, _Labels)
+decode_filter_check(#{ <<"authors">> := Authors }, _Labels, _Opts)
   when not is_list(Authors) ->
     {error, [{authors, Authors}]};
-decode_filter_check(#{ <<"#e">> := TagEventIds }, _Labels)
+decode_filter_check(#{ <<"#e">> := TagEventIds }, _Labels, _Opts)
   when not is_list(TagEventIds) ->
     {error, [{tag_event_ids, TagEventIds}]};
-decode_filter_check(#{ <<"#p">> := TagPublicKeys }, _Labels)
+decode_filter_check(#{ <<"#p">> := TagPublicKeys }, _Labels, _Opts)
   when not is_list(TagPublicKeys) ->
     {error, [{tag_public_keys, TagPublicKeys}]};
-decode_filter_check(#{ <<"kinds">> := Kinds }, _Labels)
+decode_filter_check(#{ <<"kinds">> := Kinds }, _Labels, _Opts)
   when not is_list(Kinds) ->
     {error, [{kinds, Kinds}]};
-decode_filter_check(Filter, Labels) ->
-    decode_filter_ids(Filter, #filter{}, Labels).
+decode_filter_check(Filter, Labels, Opts) ->
+    decode_filter_ids(Filter, #filter{}, Labels, Opts).
 
 %%--------------------------------------------------------------------
 %% @hidden
 %%--------------------------------------------------------------------
 % @todo add decode prefixes for ids
-decode_filter_ids(#{ <<"ids">> := EventIds } = Filter, Buffer, Labels)
+decode_filter_ids(#{ <<"ids">> := EventIds } = Filter, Buffer, Labels, Opts)
   when is_list(EventIds) ->
-    case decode_prefixes(EventIds, Labels) of
+    case decode_prefixes(EventIds, Labels, Opts) of
         {ok, Prefixes, NewLabels} ->
             Next = Buffer#filter{ event_ids = Prefixes },
-            decode_filter_authors(Filter, Next, NewLabels);
+            decode_filter_authors(Filter, Next, NewLabels, Opts);
         Elsewise ->
             Elsewise
     end;
-decode_filter_ids(Filter, Buffer, Labels)
+decode_filter_ids(Filter, Buffer, Labels, Opts)
   when is_map(Filter) ->
-    decode_filter_authors(Filter, Buffer, Labels).
+    decode_filter_authors(Filter, Buffer, Labels, Opts).
 
 %%--------------------------------------------------------------------
 %% @hidden
 %%--------------------------------------------------------------------
-decode_prefixes(Prefixes, Labels) ->
-    decode_prefixes(Prefixes, [], Labels).
+decode_prefixes(Prefixes, Labels, Opts) ->
+    decode_prefixes(Prefixes, [], Labels, Opts).
 
 %%--------------------------------------------------------------------
 %% @hidden
 %%--------------------------------------------------------------------
-decode_prefixes([], Buffer, Labels) ->
+decode_prefixes([], Buffer, Labels, _Opts) ->
     {ok, lists:reverse(Buffer), Labels};
-decode_prefixes([Prefix|Rest], Buffer, Labels) ->
+decode_prefixes([Prefix|Rest], Buffer, Labels, Opts) ->
     case is_hex(Prefix) of
         true ->
             Decoded = hex_to_binary(Prefix),
-            decode_prefixes(Rest, [Decoded|Buffer], Labels);
+            decode_prefixes(Rest, [Decoded|Buffer], Labels, Opts);
         false ->
             {error, [{prefix, Prefix}]}
     end;
-decode_prefixes(Prefixes, _, _Labels) ->
+decode_prefixes(Prefixes, _, _Labels, _Opts) ->
     {error, [{prefixes, Prefixes}]}.
 
 %%--------------------------------------------------------------------
 %% @hidden
 %%--------------------------------------------------------------------
 % @todo add decode prefixes for authors
-decode_filter_authors(#{ <<"authors">> := Authors } = Filter, Buffer, Labels)
+decode_filter_authors(#{ <<"authors">> := Authors } = Filter, Buffer, Labels, Opts)
   when is_list(Authors) ->
-    case decode_prefixes(Authors, Labels) of
+    case decode_prefixes(Authors, Labels, Opts) of
         {ok, Prefixes, NewLabels} ->
             Next = Buffer#filter{ authors = Prefixes },
-            decode_filter_kinds(Filter, Next, NewLabels);
+            decode_filter_kinds(Filter, Next, NewLabels, Opts);
         Elsewise -> Elsewise
     end;
-decode_filter_authors(Filter, Buffer, Labels)
+decode_filter_authors(Filter, Buffer, Labels, Opts)
   when is_map(Filter) ->
-    decode_filter_kinds(Filter, Buffer, Labels).
+    decode_filter_kinds(Filter, Buffer, Labels, Opts).
 
 %%--------------------------------------------------------------------
 %% @hidden
@@ -1494,17 +1494,22 @@ decode_filter_authors(Filter, Buffer, Labels)
 %% @todo add options support to allow unsupported labels or not.
 %% @end
 %%--------------------------------------------------------------------
-decode_filter_kinds(#{ <<"kinds">> := Kinds } = Filter, Buffer, Labels) ->
-    Fun = fun decode_filter_kinds_foldl/2,
+decode_filter_kinds(#{ <<"kinds">> := Kinds } = Filter, Buffer, Labels, #{ strict := true }) ->
+    Fun = fun decode_filter_kinds_foldl_strict/2,
     {DecodedKinds, NewLabels} = lists:foldl(Fun, {[], Labels}, Kinds), 
     Next = Buffer#filter{ kinds = DecodedKinds },
     decode_filter_tag_event_ids(Filter, Next, NewLabels);
-decode_filter_kinds(Filter, Buffer, Labels)
+decode_filter_kinds(#{ <<"kinds">> := Kinds } = Filter, Buffer, Labels, _Opts) ->
+    Fun = fun decode_filter_kinds_foldl_permissive/2,
+    {DecodedKinds, NewLabels} = lists:foldl(Fun, {[], Labels}, Kinds), 
+    Next = Buffer#filter{ kinds = DecodedKinds },
+    decode_filter_tag_event_ids(Filter, Next, NewLabels);
+decode_filter_kinds(Filter, Buffer, Labels, _Opts)
   when is_map(Filter) ->
     decode_filter_tag_event_ids(Filter, Buffer, Labels).
 
 % local fold to decode kinds without crashing and add a label.
-decode_filter_kinds_foldl(Kind, {Kinds, Labels}) ->
+decode_filter_kinds_foldl_permissive(Kind, {Kinds, Labels}) ->
     case kind(Kind) of
         {ok, K} -> 
             {[K|Kinds], Labels};
@@ -1513,6 +1518,18 @@ decode_filter_kinds_foldl(Kind, {Kinds, Labels}) ->
         {error, K} -> 
             {Kinds, [{kind, {error, K}}|Labels]}
     end.
+
+% in strict mode, all unsupported kinds are dropped.
+decode_filter_kinds_foldl_strict(Kind, {Kinds, Labels}) ->
+    case kind(Kind) of
+        {ok, K} -> 
+            {[K|Kinds], Labels};
+        {unknown, K} -> 
+            {Kinds, [{kind, {unknown, K}}|Labels]};
+        {error, K} -> 
+            {Kinds, [{kind, {error, K}}|Labels]}
+    end.
+
 
 %%--------------------------------------------------------------------
 %% @hidden
