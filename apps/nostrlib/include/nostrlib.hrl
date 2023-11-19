@@ -12,8 +12,8 @@
 %% A macro used to translate a kind as integer or atom.
 %%--------------------------------------------------------------------
 -define(KIND(K_INTEGER, K_ATOM),
-  kind(K_INTEGER) -> K_ATOM;
-  kind(K_ATOM) -> K_INTEGER
+  kind(K_INTEGER) -> {ok, K_ATOM};
+  kind(K_ATOM) -> {ok, K_INTEGER}
 ).
 
 %%%===================================================================

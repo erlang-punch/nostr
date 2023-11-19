@@ -473,8 +473,13 @@ encode_event_kind(#event{ kind = undefined }, _Opts, _Buffer) ->
     {error, [{kind, undefined}]};
 encode_event_kind(#event{ kind = Kind } = Event, Opts, Buffer)
   when is_atom(Kind) ->
-    Next = Buffer#{ <<"kind">> => kind(Kind) },
-    encode_event_tags(Event, Opts, Next);
+    case kind(Kind) of
+        {ok, Encoded} ->
+            Next = Buffer#{ <<"kind">> => Encoded },
+            encode_event_tags(Event, Opts, Next);
+        {unknown, _} ->
+            {error, [{kind, Kind}]}
+    end;
 encode_event_kind(#event{ kind = Kind }, _, _) ->
     {error, [{kind, Kind}]}.
 
@@ -801,7 +806,8 @@ to_json(Map) ->
 %%--------------------------------------------------------------------
 -spec decode(Message) -> Return when
       Message :: encoded_event(),
-      Return :: decoded_messages().
+      Return  :: decoded_messages().
+
 decode(Message) ->
     decode(Message, []).
 
@@ -811,8 +817,8 @@ decode(Message) ->
 %%--------------------------------------------------------------------
 -spec decode(Message, Opts) -> Return when
       Message :: encoded_event(),
-      Opts :: proplists:proplists(),
-      Return :: decoded_messages().
+      Opts    :: proplists:proplists(),
+      Return  :: decoded_messages().
 
 decode(Json, _Opts)
   when is_map(Json) orelse is_list(Json) ->
@@ -851,8 +857,8 @@ check(Message) ->
 %% @end
 %%--------------------------------------------------------------------
 -spec check(Event, Opts) -> Return when
-      Event :: encoded_event(),
-      Opts :: proplists:proplists(),
+      Event  :: encoded_event(),
+      Opts   :: proplists:proplists(),
       Return :: {ok, Event}
               | {error, any()}.
 
@@ -863,50 +869,75 @@ check(Message, Opts) ->
     end.
 
 %%--------------------------------------------------------------------
+%% @doc
+%% @see decode_message/2
+%% @end
+%%--------------------------------------------------------------------
+-spec decode_message(JSON) -> Return when
+      JSON   :: term(),
+      Return :: {ok, term()}
+              | {error, proplists:proplists()}.
+
+decode_message(JSON) ->
+    decode_message(JSON, #{}).
+
+%%--------------------------------------------------------------------
 %% @doc internal function used to decode every element of a JSON
 %% encoded message and convert it to record.
 %%
 %% @todo creates more test.
 %% @end
 %%--------------------------------------------------------------------
--spec decode_message(Json) -> Return when
-      Json :: term(),
+-spec decode_message(JSON, Opts) -> Return when
+      JSON   :: term(),
+      Opts   :: map(),
       Return :: {ok, term()}
               | {error, proplists:proplists()}.
 
 % decode an event message from client to relay
-decode_message([<<"EVENT">>, Event])
+decode_message([<<"EVENT">>, Event], Opts)
   when is_map(Event) ->
-    decode_event_id(Event, #event{}, []);
+    decode_event_id(Event, #event{}, [], Opts);
 
 % decode an event message from relay to client
-decode_message([<<"EVENT">>, <<SubscriptionId/bitstring>>, Event])
+decode_message([<<"EVENT">>, <<SubscriptionId/bitstring>>, Event], Opts)
   when is_map(Event) ->
-    decode_subscription(SubscriptionId, Event, []);
+    decode_subscription(SubscriptionId, Event, [], Opts);
 
 % decode a subscription request
-decode_message([<<"REQ">>, <<SubscriptionId/bitstring>>, Filter]) ->
-    decode_request(SubscriptionId, Filter, []);
+decode_message([<<"REQ">>, <<SubscriptionId/bitstring>>, Filter], Opts) ->
+    decode_request(SubscriptionId, Filter, [], Opts);
 
 % decode a close message: end of subscription request
-decode_message([<<"CLOSE">>, SubscriptionId]) ->
-    decode_close(SubscriptionId, []);
+decode_message([<<"CLOSE">>, SubscriptionId], Opts) ->
+    decode_close(SubscriptionId, [], Opts);
 
 % decode a notice message
-decode_message([<<"NOTICE">>, Notice]) ->
-    decode_notice(Notice, []);
+decode_message([<<"NOTICE">>, Notice], Opts) ->
+    decode_notice(Notice, [], Opts);
 
 % decode an end of subscription message
-decode_message([<<"EOSE">>, SubscriptionId]) ->
-    decode_eose(SubscriptionId, []);
+decode_message([<<"EOSE">>, SubscriptionId], Opts) ->
+    decode_eose(SubscriptionId, [], Opts);
 
-decode_message(Message) ->
+% by default, events are unsupported
+decode_message(Message, _Opts) ->
     {error, {unsupported, Message}}.
 
 %%--------------------------------------------------------------------
 %% @hidden
+%% @doc Decodes an event ID
+%% @end
 %%--------------------------------------------------------------------
-decode_event_id(#{ <<"id">> := <<RawEventId/bitstring>> } = Rest, Buffer, Labels)
+-spec decode_event_id(JSON, Buffer, Labels, Opts) -> Return when
+      JSON   :: map(),
+      Buffer :: map(),
+      Labels :: map(),
+      Opts   :: map(),
+      Return :: {ok, term(), Labels}
+              | {error, term()}.
+
+decode_event_id(#{ <<"id">> := <<RawEventId/bitstring>> } = Rest, Buffer, Labels, _Opts)
   when byte_size(RawEventId) =:= 64 ->
     case is_hex(RawEventId) of
         true ->
@@ -916,18 +947,27 @@ decode_event_id(#{ <<"id">> := <<RawEventId/bitstring>> } = Rest, Buffer, Labels
         false ->
             {error, [{event, {bad, id}}]}
     end;
-decode_event_id(#{ <<"id">> := <<_/bitstring>> }, _, Labels) ->
+decode_event_id(#{ <<"id">> := <<_/bitstring>> }, _Buffer, Labels, _Opts) ->
     Reason = [{event, {bad, id}}
              ,{labels, Labels}
              ],
     {error, Reason};
-decode_event_id(_, _, _) ->
+decode_event_id(_JSON, _Buffer, _Labels, _Opts) ->
     Reason = [{event, {missing, id}}],
     {error, Reason}.
 
 %%--------------------------------------------------------------------
 %% @hidden
+%% @doc Decodes a public key.
+%% @end
 %%--------------------------------------------------------------------
+-spec decode_event_pubkey(JSON, Buffer, Labels) -> Return when
+      JSON   :: map(),
+      Buffer :: map(),
+      Labels :: map(),
+      Return :: {ok, term(), Labels}
+              | {error, term()}.
+
 decode_event_pubkey(#{ <<"pubkey">> := <<RawPublicKey/bitstring>> } = Rest, Buffer, Labels)
   when byte_size(RawPublicKey) =:= 64 ->
     case is_hex(RawPublicKey) of
@@ -956,12 +996,17 @@ decode_event_created_at(_,_,_) ->
 
 %%--------------------------------------------------------------------
 %% @hidden
+%% @doc 
+%% @end
 %%--------------------------------------------------------------------
 decode_event_kind(#{ <<"kind">> := RawKind } = Rest, Buffer, Labels)
   when is_integer(RawKind) ->
     case kind(RawKind) of
-        unsupported -> {error, [{event, {unsupported, kind}}]};
-        Kind ->
+        {unknown, _} -> 
+            Next = Buffer#event{ kind = RawKind },
+            NewLabels = [{kind, RawKind}|Labels],
+            decode_event_tags(Rest, Next, NewLabels);
+        {ok, Kind} ->
             Next = Buffer#event{ kind = Kind },
             decode_event_tags(Rest, Next, Labels)
     end;
@@ -1249,7 +1294,10 @@ decode_tags(Tags, _) ->
 %% @todo add more tests
 %% @end
 %%--------------------------------------------------------------------
--spec serialize(event()) -> list().
+-spec serialize(Event) -> Return when
+      Event  :: event(),
+      Return :: list().
+
 serialize(#{ <<"pubkey">> := <<PublicKey/binary>> })
   when byte_size(PublicKey) =/= 64 ->
     {error, [{public_key, PublicKey}]};
@@ -1298,8 +1346,8 @@ serialize_test() ->
 %% @doc internal function.
 %% @end
 %%--------------------------------------------------------------------
-decode_subscription(<<SubscriptionId/binary>>, RawEvent, Labels) ->
-    case decode_event_id(RawEvent, #event{}, []) of
+decode_subscription(<<SubscriptionId/binary>>, RawEvent, Labels, Opts) ->
+    case decode_event_id(RawEvent, #event{}, [], Opts) of
         {ok, Event, EventLabels} ->
             Subscription = #subscription{ id = SubscriptionId
                                         , content = Event
@@ -1312,22 +1360,22 @@ decode_subscription(<<SubscriptionId/binary>>, RawEvent, Labels) ->
 %% @doc internal function.
 %% @end
 %%--------------------------------------------------------------------
-decode_filters(Filter, Labels)
+decode_filters(Filter, Labels, Opts)
   when is_map(Filter) ->
-    decode_filter(Filter, Labels);
-decode_filters(Filters, Labels)
+    decode_filter(Filter, Labels, Opts);
+decode_filters(Filters, Labels, Opts)
   when is_list(Filters)->
-    decode_filters(Filters, [], Labels).
+    decode_filters(Filters, [], Labels, Opts).
 
 %%--------------------------------------------------------------------
 %% @hidden
 %%--------------------------------------------------------------------
-decode_filters([], Buffer, Labels) ->
+decode_filters([], Buffer, Labels, _Opts) ->
     {ok, lists:reverse(Buffer), Labels};
-decode_filters([Filter|Rest], Buffer, Labels) ->
-    case decode_filter(Filter, Labels) of
+decode_filters([Filter|Rest], Buffer, Labels, Opts) ->
+    case decode_filter(Filter, Labels, Opts) of
         {ok, F, NewLabels} ->
-            decode_filters(Rest, [F|Buffer], NewLabels);
+            decode_filters(Rest, [F|Buffer], NewLabels, Opts);
         Elsewise ->
             Elsewise
     end.
@@ -1335,16 +1383,21 @@ decode_filters([Filter|Rest], Buffer, Labels) ->
 % @hidden
 -spec decode_filters_test() -> any().
 decode_filters_test() ->
-    [?assertEqual({ok, [], []}, decode_filters([], []))
-    ,?assertEqual({ok, #filter{}, []}, decode_filters(#{}, []))
-    ,?assertEqual({ok, [#filter{}], []}, decode_filters([#{}], []))
+    [?assertEqual({ok, [], []}, decode_filters([], [], #{}))
+    ,?assertEqual({ok, #filter{}, []}, decode_filters(#{}, [], #{}))
+    ,?assertEqual({ok, [#filter{}], []}, decode_filters([#{}], [], #{}))
     ].
 
 %%--------------------------------------------------------------------
 %% @doc internal function.
 %% @end
 %%--------------------------------------------------------------------
-decode_filter(Filter, Labels) ->
+decode_filter([], Labels, _Opts) ->
+    {ok, [], Labels};
+decode_filter([Filter], Labels, _Opts) 
+  when map_size(Filter) =:= 0 ->
+    {ok, [], Labels};
+decode_filter(Filter, Labels, _Opts) ->
     decode_filter_check(Filter, Labels).
 
 %%--------------------------------------------------------------------
@@ -1437,18 +1490,36 @@ decode_filter_authors(Filter, Buffer, Labels)
 
 %%--------------------------------------------------------------------
 %% @hidden
+%% @doc 
+%% @todo add options support to allow unsupported labels or not.
+%% @end
 %%--------------------------------------------------------------------
 decode_filter_kinds(#{ <<"kinds">> := Kinds } = Filter, Buffer, Labels) ->
-    Next = Buffer#filter{ kinds = kinds(Kinds) },
-    decode_filter_tag_event_ids(Filter, Next, Labels);
+    Fun = fun decode_filter_kinds_foldl/2,
+    {DecodedKinds, NewLabels} = lists:foldl(Fun, {[], Labels}, Kinds), 
+    Next = Buffer#filter{ kinds = DecodedKinds },
+    decode_filter_tag_event_ids(Filter, Next, NewLabels);
 decode_filter_kinds(Filter, Buffer, Labels)
   when is_map(Filter) ->
     decode_filter_tag_event_ids(Filter, Buffer, Labels).
 
+% local fold to decode kinds without crashing and add a label.
+decode_filter_kinds_foldl(Kind, {Kinds, Labels}) ->
+    case kind(Kind) of
+        {ok, K} -> 
+            {[K|Kinds], Labels};
+        {unknown, K} -> 
+            {[K|Kinds], [{kind, {unknown, K}}|Labels]};
+        {error, K} -> 
+            {Kinds, [{kind, {error, K}}|Labels]}
+    end.
+
 %%--------------------------------------------------------------------
 %% @hidden
+%% @doc
+%% @todo add decode for tags event ids
+%% @end
 %%--------------------------------------------------------------------
-% @todo add decode for tags event ids
 decode_filter_tag_event_ids(#{ <<"#e">> := TagEventIds } = Filter, Buffer, Labels) ->
     Parsed = lists:map(fun(X) -> hex_to_binary(X) end, TagEventIds),
     Next = Buffer#filter{ tag_event_ids = Parsed },
@@ -1521,7 +1592,7 @@ decode_filter_final(_Filter, Buffer, Labels) ->
 %%--------------------------------------------------------------------
 -spec decode_filter_test() -> any().
 decode_filter_test() ->
-    [?assertEqual({ok, #filter{}, []}, decode_filter(#{}, []))
+    [?assertEqual({ok, #filter{}, []}, decode_filter(#{}, [], #{}))
     ,?assertEqual({ok, #filter{ since = 1577836800
                               , until = 1609459200
                               , limit = 100
@@ -1529,7 +1600,7 @@ decode_filter_test() ->
                  ,decode_filter(#{ <<"since">> => 1577836800
                                  , <<"until">> => 1609459200
                                  , <<"limit">> => 100
-                                 }, [])
+                                 }, [], #{})
                  )
     ].
 
@@ -1538,8 +1609,8 @@ decode_filter_test() ->
 %% @doc
 %% @end
 %%--------------------------------------------------------------------
-decode_request(SubscriptionId, Filters, Labels) ->
-    case decode_filters(Filters, Labels) of
+decode_request(SubscriptionId, Filters, Labels, Opts) ->
+    case decode_filters(Filters, Labels, Opts) of
         {ok, F, NewLabels} ->
             Request = #request{ subscription_id = SubscriptionId
                               , filter = F
@@ -1553,8 +1624,8 @@ decode_request(SubscriptionId, Filters, Labels) ->
 %% @doc
 %% @end
 %%--------------------------------------------------------------------
-decode_eose(Value, Labels) ->
-    case decode_subscription_id(Value) of
+decode_eose(Value, Labels, Opts) ->
+    case decode_subscription_id(Value, Opts) of
         {ok, SubscriptionId} ->
             Eose = #eose{ id = SubscriptionId },
             {ok, Eose, Labels};
@@ -1566,32 +1637,32 @@ decode_eose(Value, Labels) ->
 %% @doc
 %% @end
 %%--------------------------------------------------------------------
-decode_notice(Value, Labels)
+decode_notice(Value, Labels, _Opts)
   when is_binary(Value) ->
     Notice = #notice{ message = Value },
     {ok, Notice, Labels};
-decode_notice(Value, _Labels) ->
+decode_notice(Value, _Labels, _Opts) ->
     {error, [{notice, Value}]}.
 
 %%--------------------------------------------------------------------
 %% @doc internal function.
 %% @end
 %%--------------------------------------------------------------------
-decode_close(Value, Labels)
+decode_close(Value, Labels, Opts)
   when is_binary(Value) ->
-    case decode_subscription_id(Value) of
+    case decode_subscription_id(Value, Opts) of
         {ok, SubscriptionId} ->
             Close = #close{ subscription_id = SubscriptionId },
             {ok, Close, Labels};
         Elsewise -> Elsewise
     end;
-decode_close(SubscriptionId, _Labels) ->
+decode_close(SubscriptionId, _Labels, _Opts) ->
     {error, [{subscription_id, SubscriptionId}]}.
 
 %%--------------------------------------------------------------------
 %% @hidden
 %%--------------------------------------------------------------------
-decode_subscription_id(<<SubscriptionId/binary>>) ->
+decode_subscription_id(<<SubscriptionId/binary>>, _Opts) ->
     case re:run(SubscriptionId, <<"^\\w+$">>) of
         {match, _} -> {ok, SubscriptionId};
         _ -> {error, [{subscription_id, SubscriptionId}]}
@@ -1604,14 +1675,16 @@ decode_subscription_id(<<SubscriptionId/binary>>) ->
 %%--------------------------------------------------------------------
 -spec kind(Kind) -> Return when
       Kind :: kind(),
-      Return :: kind().
+      Return :: {ok, kind()}
+              | {unknown, kind()}.
 
 ?KIND(0, set_metadata);
 ?KIND(1, text_note);
 ?KIND(2, recommend_server);
 ?KIND(3, contact_list);
 ?KIND(7, reaction);
-kind(_) -> unsupported.
+kind(Kind) when is_integer(Kind) -> {unknown, Kind};
+kind(Kind) ->  {error, Kind}.
 
 %%--------------------------------------------------------------------
 %% @doc kinds/1 function converts a list of atoms into integers.
@@ -1622,10 +1695,27 @@ kind(_) -> unsupported.
       Return :: [pos_integer()].
 
 kinds(Kinds) ->
-    Converter = fun(Kind) when is_atom(Kind) -> kind(Kind);
-                   (Kind) when is_integer(Kind) -> kind(Kind)
-                end,
-    lists:map(Converter, Kinds).
+    lists:map(fun kind_converter/1, Kinds).
+
+%%--------------------------------------------------------------------
+%% @hidden
+%% @doc simple map converter.
+%% @see kinds/1
+%% @end
+%%--------------------------------------------------------------------
+% here we encode, that means we must support this kind.
+kind_converter(Kind) 
+  when is_atom(Kind) ->
+    {ok, Return} = kind(Kind),
+    Return;
+% here we decode, that means we should support the kind received, but
+% if it's not the case, we return it as integer.
+kind_converter(Kind) 
+  when is_integer(Kind) ->
+    case kind(Kind) of
+        {ok, Return} -> Return;
+        {unknown, _} -> Kind
+    end.
 
 %%--------------------------------------------------------------------
 %% @doc `integer_to_hex/1' converts integer to hexadecimal bitstring.

@@ -251,12 +251,12 @@ match_event_kind_test() ->
 
     % a filter where an kind public key is not in the kinds list
     % must return false
-    WrongKinds = [metadata],
+    WrongKinds = [set_metadata],
     ?assertEqual(false, match_event_kind(E, #filter{ kinds = WrongKinds })),
 
     % a filter containing an kind public key in the kinds list
     % must return true.
-    RightKinds = [metadata, text_note],
+    RightKinds = [set_metadata, text_note],
     ?assertEqual(true, match_event_kind(E, #filter{ kinds = RightKinds })).
 
 %%--------------------------------------------------------------------
